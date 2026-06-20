@@ -1,9 +1,9 @@
 Rostlina, kterou zpracováváš:
-[Execute previous nodes for preview]
+{{ $('API data').item.json.plants }}
 
 Data z Perplexity:
-OBSAH: [Execute previous nodes for preview]
-ZDROJE (citations): [Execute previous nodes for preview]
+OBSAH: {{ $('Edit Fields').item.json.content }}
+ZDROJE (citations): {{ $('Edit Fields').item.json.citations }}
 
 Jsi asistent, který generuje popisy rostlin a jejich odrůd pro zahradnický e-shop.
 
