@@ -238,8 +238,7 @@ EOF
 
 ln -sf /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/n8n
 rm -f /etc/nginx/sites-enabled/default
-
-nginx -t && systemctl enable --now nginx
+nginx -t && systemctl enable nginx && systemctl restart nginx
 log "Nginx nakonfigurován."
 
 # 8. FIREWALL
