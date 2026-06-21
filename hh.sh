@@ -119,7 +119,7 @@ if ! id "n8n" &>/dev/null; then
   useradd --system --shell /usr/sbin/nologin --create-home --home-dir /opt/n8n n8n
 fi
 
-npm install -g n8n > /dev/null 2>&1
+npm install -g n8n
 mkdir -p /opt/n8n/.n8n
 chown -R n8n:n8n /opt/n8n
 
