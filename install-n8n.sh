@@ -41,10 +41,8 @@ else
 fi
 
 echo ""
-read -rp "Název databáze [n8n]: " DB_NAME
-DB_NAME="${DB_NAME:-n8n}"
-read -rp "Uživatel databáze [n8n]: " DB_USER
-DB_USER="${DB_USER:-n8n}"
+DB_NAME="n8n"
+DB_USER="n8n"
 
 echo "Heslo k databázi [Enter = vygenerovat automaticky]: "
 read -rsp "Heslo: " DB_PASS_INPUT || true
@@ -136,9 +134,9 @@ if [[ "$USE_DOMAIN" == true ]]; then
   N8N_PROTOCOL="https"
   SECURE_COOKIE="true"
 else
-  WEBHOOK_URL="http://${N8N_HOST}/"
-  N8N_PROTOCOL="http"
-  SECURE_COOKIE="false"
+  WEBHOOK_URL="https://${N8N_HOST}/"
+  N8N_PROTOCOL="https"
+  SECURE_COOKIE="true"
 fi
 
 cat > /etc/n8n/n8n.env <<EOF
@@ -205,12 +203,25 @@ log "systemd service vytvořena."
 # 7. NGINX
 info "Konfigurace Nginx..."
 
+if [[ "$USE_DOMAIN" == false ]]; then
+  info "Generuji self-signed SSL certifikát..."
+  openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout /etc/ssl/private/n8n-selfsigned.key \
+    -out /etc/ssl/certs/n8n-selfsigned.crt \
+    -subj "/CN=${N8N_HOST}/O=n8n/C=CZ" \
+    -addext "subjectAltName=IP:${N8N_HOST}" 2>/dev/null
+  log "Self-signed certifikát vytvořen."
+fi
+
 cat > /etc/nginx/sites-available/n8n <<EOF
 map \$http_upgrade \$connection_upgrade {
   default upgrade;
   ''      close;
 }
+EOF
 
+if [[ "$USE_DOMAIN" == true ]]; then
+cat >> /etc/nginx/sites-available/n8n <<EOF
 server {
     listen 80;
     server_name ${N8N_HOST};
@@ -235,6 +246,44 @@ server {
     }
 }
 EOF
+else
+cat >> /etc/nginx/sites-available/n8n <<EOF
+server {
+    listen 80;
+    server_name ${N8N_HOST};
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${N8N_HOST};
+
+    ssl_certificate /etc/ssl/certs/n8n-selfsigned.crt;
+    ssl_certificate_key /etc/ssl/private/n8n-selfsigned.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    location / {
+        proxy_pass http://127.0.0.1:5678;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300s;
+        chunked_transfer_encoding off;
+        proxy_buffering off;
+        proxy_cache off;
+    }
+}
+EOF
+fi
 
 ln -sf /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/n8n
 rm -f /etc/nginx/sites-enabled/default
@@ -248,10 +297,7 @@ ufw default deny incoming
 ufw default allow outgoing
 ufw allow OpenSSH
 ufw allow 80/tcp
-
-if [[ "$USE_DOMAIN" == true ]]; then
-  ufw allow 443/tcp
-fi
+ufw allow 443/tcp
 
 ufw --force enable
 log "Firewall aktivován (SSH + HTTP$([ "$USE_DOMAIN" == true ] && echo '/HTTPS'), port 5678 blokován zvenčí)."
@@ -284,11 +330,7 @@ fi
 echo ""
 echo "Instalace dokončena."
 echo ""
-if [[ "$USE_DOMAIN" == true ]]; then
-  echo "  URL:             https://${N8N_HOST}"
-else
-  echo "  URL:             http://${N8N_HOST}"
-fi
+echo "  URL:             https://${N8N_HOST}"
 echo ""
 echo "  Logy:            journalctl -u n8n -f"
 echo "  Restart:         systemctl restart n8n"
