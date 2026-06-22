@@ -19,25 +19,18 @@ echo ""
 echo "n8n instalace"
 echo ""
 
-echo "Přístup:"
-echo "  1) Veřejná doména (HTTPS / Let's Encrypt)"
-echo "  2) IP adresa / VPN (HTTP)"
-echo ""
-read -rp "Volba [1/2]: " ACCESS_TYPE
+DETECTED_IP=$(hostname -I | awk '{print $1}')
+read -rp "Doména nebo IP adresa [$DETECTED_IP]: " N8N_HOST_INPUT
+N8N_HOST="${N8N_HOST_INPUT:-$DETECTED_IP}"
+[[ -z "$N8N_HOST" ]] && error "Doména nebo IP nesmí být prázdná."
 
-if [[ "$ACCESS_TYPE" == "1" ]]; then
-  read -rp "Doména (např. n8n.firma.cz): " N8N_HOST
-  [[ -z "$N8N_HOST" ]] && error "Doména nesmí být prázdná."
-  read -rp "E-mail pro Let's Encrypt: " LETSENCRYPT_EMAIL
-  [[ -z "$LETSENCRYPT_EMAIL" ]] && error "E-mail nesmí být prázdný."
-  USE_DOMAIN=true
-elif [[ "$ACCESS_TYPE" == "2" ]]; then
-  DETECTED_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')
-  read -rp "IP adresa serveru [$DETECTED_IP]: " N8N_HOST_INPUT
-  N8N_HOST="${N8N_HOST_INPUT:-$DETECTED_IP}"
+# Rozpoznej jestli je to IP nebo doména
+if [[ "$N8N_HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   USE_DOMAIN=false
 else
-  error "Neplatná volba."
+  USE_DOMAIN=true
+  read -rp "E-mail pro Let's Encrypt: " LETSENCRYPT_EMAIL
+  [[ -z "$LETSENCRYPT_EMAIL" ]] && error "E-mail nesmí být prázdný."
 fi
 
 echo ""
