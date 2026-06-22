@@ -15,48 +15,43 @@ error()   { echo -e "${RED}[!!]${NC} $1"; exit 1; }
 
 # KONFIGURACE
 
-echo ""
-echo "n8n instalace"
-echo ""
+DB_NAME="n8n"
+DB_USER="n8n"
 
-DETECTED_IP=$(hostname -I | awk '{print $1}')
-read -rp "Doména nebo IP adresa [$DETECTED_IP]: " N8N_HOST_INPUT
-N8N_HOST="${N8N_HOST_INPUT:-$DETECTED_IP}"
-[[ -z "$N8N_HOST" ]] && error "Doména nebo IP nesmí být prázdná."
+# Interaktivní režim pokud proměnné nejsou předány zvenku (např. z cloud-init)
+if [[ -z "${N8N_HOST:-}" ]]; then
+  echo ""
+  echo "n8n instalace"
+  echo ""
+  DETECTED_IP=$(hostname -I | awk '{print $1}')
+  read -rp "Doména nebo IP adresa [$DETECTED_IP]: " N8N_HOST_INPUT
+  N8N_HOST="${N8N_HOST_INPUT:-$DETECTED_IP}"
+fi
 
-# Rozpoznej jestli je to IP nebo doména
+[[ -z "${N8N_HOST:-}" ]] && error "N8N_HOST nesmí být prázdný."
+
 if [[ "$N8N_HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   USE_DOMAIN=false
 else
   USE_DOMAIN=true
-  read -rp "E-mail pro Let's Encrypt: " LETSENCRYPT_EMAIL
+  if [[ -z "${N8N_EMAIL:-}" ]]; then
+    read -rp "E-mail pro Let's Encrypt: " N8N_EMAIL
+  fi
+  LETSENCRYPT_EMAIL="$N8N_EMAIL"
   [[ -z "$LETSENCRYPT_EMAIL" ]] && error "E-mail nesmí být prázdný."
 fi
 
-echo ""
-DB_NAME="n8n"
-DB_USER="n8n"
-
-echo "Heslo k databázi [Enter = vygenerovat automaticky]: "
-read -rsp "Heslo: " DB_PASS_INPUT || true
-echo ""
-DB_PASS_INPUT="${DB_PASS_INPUT:-}"
-if [[ -z "$DB_PASS_INPUT" ]]; then
+if [[ -z "${DB_PASS:-}" ]]; then
+  echo "Heslo k databázi [Enter = vygenerovat automaticky]: "
+  read -rsp "Heslo: " DB_PASS_INPUT || true
+  echo ""
+  DB_PASS="${DB_PASS_INPUT:-}"
+fi
+if [[ -z "${DB_PASS:-}" ]]; then
   DB_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)
-  info "Heslo vygenerováno automaticky."
-else
-  DB_PASS="$DB_PASS_INPUT"
 fi
 
 N8N_ENCRYPTION_KEY=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 48)
-
-echo ""
-if [[ "$USE_DOMAIN" == true ]]; then
-  echo "  Přístup:    https://$N8N_HOST"
-else
-  echo "  Přístup:    http://$N8N_HOST"
-fi
-echo "  Databáze:   PostgreSQL / $DB_NAME"
 
 
 # 1. ZÁVISLOSTI
