@@ -57,9 +57,7 @@ else
   echo "  Přístup:    http://$N8N_HOST"
 fi
 echo "  Databáze:   PostgreSQL / $DB_NAME"
-echo ""
-read -rp "Pokračovat? [y/N]: " CONFIRM
-[[ "${CONFIRM,,}" != "y" ]] && { info "Zrušeno."; exit 0; }
+
 
 # 1. ZÁVISLOSTI
 info "Instalace závislostí..."
