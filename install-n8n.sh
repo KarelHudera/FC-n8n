@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
+RED='\033;31m'
+GREEN='\033;32m'
+BLUE='\033;34m'
 NC='\033[0m'
 
 log()   { echo -e "${GREEN}[OK]${NC} $1"; }
@@ -42,80 +42,252 @@ else
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Instalace n8n</title>
+<link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.2.96/css/materialdesignicons.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --font-family-base: "Manrope", sans-serif;
+    --body-bg: #f8f9fa;
+    --card-bg: #ffffff;
+    --border-color: #dadde6;
+    --text-main: #505459;
+    --text-heading: #17191C;
+    --text-muted: #737880;
+    --brand-primary: #069bfe;
+    --brand-primary-hover: #058ae2;
+    --border-radius: 8px;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-  .card { background: white; border-radius: 12px; padding: 40px; max-width: 520px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-  h1 { font-size: 22px; color: #1a1a1a; margin-bottom: 8px; }
-  .subtitle { color: #666; font-size: 14px; margin-bottom: 32px; }
-  .ip-box { background: #f0f7ff; border: 1px solid #c2deff; border-radius: 8px; padding: 12px 16px; margin-bottom: 28px; font-size: 14px; color: #1a4a8a; }
-  .ip-box strong { font-size: 18px; letter-spacing: 0.5px; }
-  label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; }
-  .options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
-  .option { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: border-color 0.2s; }
-  .option:hover { border-color: #666; }
-  .option input[type=radio] { accent-color: #ff6d5a; width: 16px; height: 16px; }
-  .option.selected { border-color: #ff6d5a; background: #fff8f7; }
-  .option-label { font-size: 14px; color: #333; }
-  .option-desc { font-size: 12px; color: #888; margin-top: 2px; }
+
+  body {
+    font-family: var(--font-family-base);
+    background-color: var(--body-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 36px;
+    max-width: 500px;
+    width: 100%;
+    border: 1px solid var(--border-color);
+    box-shadow: 0px 2px 16px rgba(0, 0, 0, 0.03);
+  }
+
+  h1 {
+    font-size: 24px;
+    color: var(--text-heading);
+    margin-bottom: 6px;
+    font-weight: 500;
+    letter-spacing: -0.3px;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 13.5px;
+    margin-bottom: 28px;
+    font-weight: 400;
+  }
+
+  .ip-box {
+    background: #E5EEFF;
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-bottom: 24px;
+    font-size: 14px;
+    color: #2368AD;
+    font-weight: 400;
+  }
+  .ip-box strong { font-weight: 600; font-size: 15px; }
+
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-heading);
+    margin-bottom: 8px;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .option {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+    background-color: #ffffff;
+  }
+  .option:hover {
+    border-color: var(--brand-primary);
+  }
+  .option input[type=radio] {
+    accent-color: var(--brand-primary);
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+  }
+  .option.selected {
+    border-color: var(--brand-primary);
+    background-color: #f4f9ff;
+  }
+  .option-label {
+    font-size: 14px;
+    color: var(--text-heading);
+    font-weight: 500;
+  }
+  .option-desc {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    line-height: 17px;
+  }
+
   #domain-section { display: none; margin-bottom: 24px; }
   #domain-section.visible { display: block; }
-  input[type=text] { width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; }
-  input[type=text]:focus { border-color: #ff6d5a; }
-  .dns-info { background: #fffbea; border: 1px solid #ffe57a; border-radius: 8px; padding: 14px 16px; margin-top: 14px; font-size: 13px; color: #7a5c00; }
-  .dns-info code { background: #fff3cc; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+
+  input[type=text] {
+    width: 100%;
+    height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--text-main);
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: var(--font-family-base);
+    background-color: #ffffff;
+  }
+  input[type=text]:focus {
+    border-color: var(--brand-primary);
+  }
+  input[type=text]::placeholder {
+    color: #b3b5b9;
+  }
+
+  .dns-info {
+    background: #fffbeb;
+    border: 1px solid #ffeeba;
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-top: 14px;
+    font-size: 13px;
+    color: #856404;
+    line-height: 18px;
+  }
+  .dns-info code { background: #fff3cd; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
   .dns-table { width: 100%; margin-top: 10px; border-collapse: collapse; }
-  .dns-table td { padding: 4px 8px; font-size: 12px; }
-  .dns-table td:first-child { font-weight: 600; width: 80px; }
-  button { width: 100%; padding: 14px; background: #ff6d5a; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-  button:hover { background: #e55a47; }
-  button:disabled { background: #ccc; cursor: not-allowed; }
-  .note { font-size: 12px; color: #999; text-align: center; margin-top: 16px; }
-  .spinner { display: none; width: 40px; height: 40px; border: 4px solid #f0f0f0; border-top-color: #ff6d5a; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 24px; }
+  .dns-table td { padding: 5px 4px; font-size: 13px; color: #856404; }
+  .dns-table td:first-child { font-weight: 600; width: 70px; }
+
+  .lu-btn--plain.lu-btn--primary {
+    cursor: pointer;
+    box-sizing: border-box;
+    font-family: var(--font-family-base);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s, border-color 0.15s;
+    vertical-align: top;
+    white-space: nowrap;
+    outline: 0;
+    font-weight: 500;
+    border-radius: 6px;
+    font-size: 14px;
+    height: 40px;
+    padding: 0 16px;
+    color: #ffffff;
+    background-color: var(--brand-primary);
+    border: 1px solid var(--brand-primary);
+    width: 100%;
+  }
+  .lu-btn--plain.lu-btn--primary:hover {
+    background-color: var(--brand-primary-hover);
+    border-color: var(--brand-primary-hover);
+  }
+  .lu-btn--plain.lu-btn--primary:disabled {
+    background-color: #dadde6;
+    border-color: #dadde6;
+    cursor: not-allowed;
+  }
+  .lu-btn__icon { margin-right: 6px; font-size: 18px; display: inline-flex; align-items: center; }
+  .lu-btn__text { display: inline-block; line-height: 1; }
+
+  .note { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 16px; }
+
+  /* Stylovaný klientský spinner */
+  .spinner { display: block; width: 44px; height: 44px; border: 3px solid #edeff2; border-top-color: var(--brand-primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 24px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>Instalace n8n</h1>
-  <p class="subtitle">Nakonfigurujte přístupovou adresu vašeho n8n serveru.</p>
-  <div class="ip-box">IP adresa tohoto serveru: <strong>SERVER_IP_PLACEHOLDER</strong></div>
-  <label>Jak chcete přistupovat k n8n?</label>
-  <div class="options">
-    <label class="option selected" id="opt-ip">
-      <input type="radio" name="mode" value="ip" checked onchange="selectMode('ip')">
-      <div>
-        <div class="option-label">Použít IP adresu</div>
-        <div class="option-desc">Rychlé, bez nastavení DNS. Bude použit self-signed certifikát.</div>
-      </div>
-    </label>
-    <label class="option" id="opt-domain">
-      <input type="radio" name="mode" value="domain" onchange="selectMode('domain')">
-      <div>
-        <div class="option-label">Použít vlastní doménu</div>
-        <div class="option-desc">Doporučeno. Automatický HTTPS certifikát přes Let's Encrypt.</div>
-      </div>
-    </label>
-  </div>
-  <div id="domain-section">
-    <label for="domain">Vaše doména</label>
-    <input type="text" id="domain" placeholder="n8n.vasestranka.cz" oninput="updateDns(this.value)">
-    <div class="dns-info">
-      Před pokračováním nastavte DNS záznam:
-      <table class="dns-table">
-        <tr><td>Typ</td><td><code>A</code></td></tr>
-        <tr><td>Název</td><td><code id="dns-name">n8n.vasestranka.cz</code></td></tr>
-        <tr><td>Hodnota</td><td><code>SERVER_IP_PLACEHOLDER</code></td></tr>
-        <tr><td>TTL</td><td><code>300</code></td></tr>
-      </table>
+  <div id="setup-content">
+    <h1>Instalace n8n</h1>
+    <p class="subtitle">Nakonfigurujte přístupovou adresu vašeho n8n serveru.</p>
+    <div class="ip-box">IP adresa tohoto serveru: <strong>SERVER_IP_PLACEHOLDER</strong></div>
+    <label>Jak chcete přistupovat k n8n?</label>
+    <div class="options">
+      <label class="option selected" id="opt-ip">
+        <input type="radio" name="mode" value="ip" checked onchange="selectMode('ip')">
+        <div>
+          <div class="option-label">Použít IP adresu</div>
+          <div class="option-desc">Rychlé, bez nastavení DNS. Bude použit self-signed certifikát.</div>
+        </div>
+      </label>
+      <label class="option" id="opt-domain">
+        <input type="radio" name="mode" value="domain" onchange="selectMode('domain')">
+        <div>
+          <div class="option-label">Použít vlastní doménu</div>
+          <div class="option-desc">Doporučeno. Automatický HTTPS certifikát přes Let's Encrypt.</div>
+        </div>
+      </label>
     </div>
-    <div style="margin-top:12px;">
-      <label for="email">E-mail pro Let's Encrypt</label>
-      <input type="text" id="email" placeholder="vas@email.cz" style="margin-top:6px;">
+    <div id="domain-section">
+      <div style="margin-bottom: 16px;">
+        <label for="domain">Vaše doména</label>
+        <input type="text" id="domain" placeholder="n8n.vasestranka.cz" oninput="updateDns(this.value)">
+        <div class="dns-info">
+          Před pokračováním nastavte DNS záznam:
+          <table class="dns-table">
+            <tr><td>Typ</td><td><code>A</code></td></tr>
+            <tr><td>Název</td><td><code id="dns-name">n8n.vasestranka.cz</code></td></tr>
+            <tr><td>Hodnota</td><td><code>SERVER_IP_PLACEHOLDER</code></td></tr>
+            <tr><td>TTL</td><td><code>300</code></td></tr>
+          </table>
+        </div>
+      </div>
+      <div style="margin-bottom: 4px;">
+        <label for="email">E-mail pro Let's Encrypt</label>
+        <input type="text" id="email" placeholder="vas@email.cz">
+      </div>
     </div>
+
+    <button id="btn" type="button" class="lu-btn lu-btn--plain lu-btn--primary" name="ModulesGarden_ProxmoxVeVpsCloud_App_UI_Source_Snapshot_Buttons_CreateButton" onclick="handleSubmit()">
+      <i class="lu-mdi mdi mdi-plus lu-btn__icon"></i>
+      <span class="lu-btn__text" id="btn-text">Pokračovat v instalaci</span>
+    </button>
+
+    <p class="note">Po potvrzení bude instalace pokračovat automaticky.</p>
   </div>
-  <button id="btn" onclick="handleSubmit()">Pokračovat v instalaci</button>
-  <p class="note">Po potvrzení bude instalace pokračovat automaticky.</p>
 </div>
 <script>
 function selectMode(mode) {
@@ -123,42 +295,41 @@ function selectMode(mode) {
   document.getElementById('opt-domain').classList.toggle('selected', mode === 'domain');
   document.getElementById('domain-section').classList.toggle('visible', mode === 'domain');
 }
-
 function updateDns(value) {
   document.getElementById('dns-name').textContent = value || 'n8n.vasestranka.cz';
 }
-
+function getSuccessHTML(host) {
+  return '<div style="text-align:center; padding: 10px 0;"><div class="spinner"></div><h1>Instalace probíhá</h1><p style="color:var(--text-muted); font-size:14px; line-height: 1.6; margin-top: 12px;">Server se nyní konfiguruje. Za několik minut bude n8n dostupné na <br><strong style="color:var(--brand-primary); font-weight:600;">https://' + host + '</strong>.<br><br>Tuto stránku můžete bezpečně zavřít.</p></div>';
+}
 function handleSubmit() {
   var mode = document.querySelector('input[name=mode]:checked').value;
   var domain = document.getElementById('domain').value.trim();
   var email = document.getElementById('email').value.trim();
-
   if (mode === 'domain') {
     if (!domain) { alert('Zadejte doménu.'); return; }
     if (!email) { alert('Zadejte e-mail pro Let\'s Encrypt.'); return; }
   }
-
   var host = mode === 'ip' ? 'SERVER_IP_PLACEHOLDER' : domain;
   var btn = document.getElementById('btn');
-  btn.textContent = 'Ověřuji...';
+  var btnText = document.getElementById('btn-text');
+  btnText.textContent = 'Ověřuji...';
   btn.disabled = true;
-
   fetch('/submit', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: 'host=' + encodeURIComponent(host) + '&email=' + encodeURIComponent(email)
   }).then(function(r) {
     if (r.ok) {
-      document.querySelector('.card').innerHTML = '<div style="text-align:center"><div class="spinner" style="display:block"></div><h1 style="margin-bottom:16px">Instalace probíhá</h1><p style="color:#666;font-size:14px">Server se nyní konfiguruje. Za několik minut bude n8n dostupné na <strong>https://' + host + '</strong>.<br><br>Tuto stránku můžete zavřít.</p></div>';
+      document.getElementById('setup-content').innerHTML = getSuccessHTML(host);
     } else {
       r.text().then(function(err) {
-        btn.textContent = 'Pokračovat v instalaci';
+        btnText.textContent = 'Pokračovat v instalaci';
         btn.disabled = false;
         if (err.indexOf('DNS_MISMATCH') === 0) {
           var resolved = err.split(':')[1];
           alert('Doména ' + host + ' směřuje na ' + resolved + ', ale IP tohoto serveru je SERVER_IP_PLACEHOLDER.\n\nZkontrolujte DNS záznam a zkuste znovu.');
         } else if (err === 'DNS_UNRESOLVED') {
-          alert('Doménu ' + host + ' se nepodařilo přeložit.\n\nZkontrolujte DNS záznam. Změny DNS mohou trvat až 24 hodin.');
+          alert('Domenou ' + host + ' se nepodařilo přeložit.\n\nZkontrolujte DNS záznam. Změny DNS mohou trvat až 24 hodin.');
         }
       });
     }
@@ -169,26 +340,40 @@ function handleSubmit() {
 </html>
 HTML
 
-  # Nahraď placeholder skutečnou IP
   sed -i "s/SERVER_IP_PLACEHOLDER/$DETECTED_IP/g" /tmp/setup.html
 
   cat > /tmp/n8n_setup_server.py << 'PYEOF'
 import http.server, ssl, urllib.parse, os, re, socket, sys
-
 SERVER_IP = open('/tmp/setup_ip').read().strip()
 HTML = open('/tmp/setup.html').read()
-WAITING_HTML = """<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"><title>Instalace n8n</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;background:#f5f5f5;display:flex;align-items:center;justify-content:center;min-height:100vh}.card{background:white;border-radius:12px;padding:40px;max-width:520px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center}h1{font-size:22px;margin-bottom:16px}p{color:#666;font-size:14px;line-height:1.6}.spinner{width:40px;height:40px;border:4px solid #f0f0f0;border-top-color:#ff6d5a;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 24px}@keyframes spin{to{transform:rotate(360deg)}}</style>
-</head><body><div class="card"><div class="spinner"></div><h1>Instalace probíhá</h1><p>Server se nyní konfiguruje. Za několik minut bude n8n dostupné.<br><br>Tuto stránku můžete zavřít.</p></div></body></html>"""
-
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
-        page = WAITING_HTML if os.path.exists('/tmp/n8n_config') else HTML
+        if os.path.exists('/tmp/n8n_config'):
+            host = "server"
+            try:
+                with open('/tmp/n8n_config', 'r') as f:
+                    for line in f:
+                        if line.startswith('N8N_HOST='):
+                            host = line.split('=')[1].strip()
+            except:
+                pass
+
+            success_content = '<div style="text-align:center; padding: 10px 0;"><div class="spinner"></div><h1>Instalace probíhá</h1><p style="color:var(--text-muted); font-size:14px; line-height: 1.6; margin-top: 12px;">Server se nyní konfiguruje. Za několik minut bude n8n dostupné na <br><strong style="color:var(--brand-primary); font-weight:600;">https://' + host + '</strong>.<br><br>Tuto stránku můžete bezpečně zavřít.</p></div>'
+
+            # Bezpečné regex nahrazení celého vnitřku divu card
+            page = re.sub(
+                r'<div id="setup-content">.*?</div>\s*</div>\s*<script>',
+                '<div id="setup-content">' + success_content + '</div></div><script>',
+                HTML,
+                flags=re.DOTALL
+            )
+        else:
+            page = HTML
+
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.end_headers()
         self.wfile.write(page.encode())
-
     def do_POST(self):
         if self.path == '/submit':
             length = int(self.headers.get('Content-Length', 0))
@@ -196,7 +381,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             params = urllib.parse.parse_qs(body)
             host = params.get('host', [''])[0]
             email = params.get('email', [''])[0]
-
             is_ip = bool(re.match(r'^\d+\.\d+\.\d+\.\d+$', host))
             if not is_ip:
                 try:
@@ -213,16 +397,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(b'DNS_UNRESOLVED')
                     return
-
             with open('/tmp/n8n_config', 'w') as f:
                 f.write('N8N_HOST=' + host + '\nN8N_EMAIL=' + email + '\n')
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b'ok')
-
     def log_message(self, *args):
         pass
-
 server = http.server.HTTPServer(('0.0.0.0', 443), Handler)
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ctx.load_cert_chain('/tmp/setup.crt', '/tmp/setup.key')
@@ -243,7 +424,7 @@ PYEOF
 
   source /tmp/n8n_config
   rm -f /tmp/n8n_setup_server.py /tmp/setup.html /tmp/setup.crt /tmp/setup.key /tmp/setup_ip
-  # n8n_config nesmazáváme - webserver ho potřebuje pro waiting stránku při refreshi
+  # n8n_config zde schválně NEMAŽEME, aby Python mohl po refreshi číst konfiguraci
 
   log "Konfigurace přijata: $N8N_HOST"
 fi
@@ -368,7 +549,6 @@ log "systemd service vytvořena."
 
 # Zastav konfigurační webserver před spuštěním nginx (oba by chtěly port 443)
 if [[ -n "${WEBSERVER_PID:-}" ]]; then
-  rm -f /tmp/n8n_config
   kill $WEBSERVER_PID 2>/dev/null || true
   wait $WEBSERVER_PID 2>/dev/null || true
 fi
@@ -443,7 +623,6 @@ server {
         proxy_read_timeout 300s;
         chunked_transfer_encoding off;
         proxy_buffering off;
-        proxy_cache off;
     }
 }
 EOF
@@ -472,8 +651,6 @@ if [[ "$USE_DOMAIN" == true ]]; then
   log "HTTPS certifikát nainstalován."
 fi
 
-
-
 info "Spouštím n8n..."
 systemctl start n8n
 sleep 4
@@ -500,3 +677,23 @@ echo "  Konfig:          /etc/n8n/n8n.env  (root only)"
 echo "  DB heslo:        ${DB_PASS}"
 echo "  Encryption key:  ${N8N_ENCRYPTION_KEY}"
 echo ""
+
+# Úplné finální smazání dočasných souborů včetně configu
+rm -f /tmp/n8n_config
+rm -f /tmp/setup.crt
+rm -f /tmp/setup.key
+rm -f /tmp/setup.html
+rm -f /tmp/setup_ip
+
+# Vyčištění balíčků
+apt-get autoremove -y
+apt-get autoclean -y
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+
+# Smazání instalačního skriptu
+SCRIPT_PATH="$(readlink -f "$0")"
+(
+    sleep 2
+    rm -f "$SCRIPT_PATH"
+) &
