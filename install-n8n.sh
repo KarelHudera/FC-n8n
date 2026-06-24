@@ -15,6 +15,12 @@ error() { echo -e "${RED}[!!]${NC} $1"; exit 1; }
 DB_NAME="n8n"
 DB_USER="n8n"
 
+# Perzistentní kontrola šifrovacího klíče pro zamezení chyb mismatching keys
+EXISTING_KEY=""
+if [[ -f /etc/n8n/n8n.env ]]; then
+  EXISTING_KEY=$(grep 'N8N_ENCRYPTION_KEY=' /etc/n8n/n8n.env | cut -d'=' -f2)
+fi
+
 if [[ -n "${N8N_HOST:-}" ]]; then
   info "Konfigurace převzata z prostředí."
 else
@@ -182,18 +188,18 @@ else
   }
 
   .dns-info {
-    background: #fffbeb;
-    border: 1px solid #ffeeba;
+    background: #f0f7ff;
+    border: 1px solid #bcd7ff;
     border-radius: 6px;
     padding: 14px 16px;
     margin-top: 14px;
     font-size: 13px;
-    color: #856404;
+    color: #1a4f8a;
     line-height: 18px;
   }
-  .dns-info code { background: #fff3cd; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+  .dns-info code { background: #dbeafe; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #1e40af; }
   .dns-table { width: 100%; margin-top: 10px; border-collapse: collapse; }
-  .dns-table td { padding: 5px 4px; font-size: 13px; color: #856404; }
+  .dns-table td { padding: 5px 4px; font-size: 13px; color: #1a4f8a; }
   .dns-table td:first-child { font-weight: 600; width: 70px; }
 
   .lu-btn--plain.lu-btn--primary {
@@ -231,8 +237,6 @@ else
   .lu-btn__text { display: inline-block; line-height: 1; }
 
   .note { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 16px; }
-
-  /* Stylovaný klientský spinner */
   .spinner { display: block; width: 44px; height: 44px; border: 3px solid #edeff2; border-top-color: var(--brand-primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 24px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -280,7 +284,7 @@ else
       </div>
     </div>
 
-    <button id="btn" type="button" class="lu-btn lu-btn--plain lu-btn--primary" name="ModulesGarden_ProxmoxVeVpsCloud_App_UI_Source_Snapshot_Buttons_CreateButton" onclick="handleSubmit()">
+    <button id="btn" type="button" class="lu-btn lu-btn--plain lu-btn--primary" onclick="handleSubmit()">
       <i class="lu-mdi mdi mdi-plus lu-btn__icon"></i>
       <span class="lu-btn__text" id="btn-text">Pokračovat v instalaci</span>
     </button>
@@ -326,7 +330,7 @@ function handleSubmit() {
         btn.disabled = false;
         if (err.indexOf('DNS_MISMATCH') === 0) {
           var resolved = err.split(':')[1];
-          alert('Doména ' + host + ' směřuje na ' + resolved + ', ale IP tohoto serveru je SERVER_IP_PLACEHOLDER.\n\nZkontrolujte DNS záznam a zkuste znovu.');
+          alert('Doména ' + host + ' směřuje na ' + resolved + ', ale IP tohoto serveru je SERVER_IP_PLACEHOLDER.\n\nZkontrolujte DNS záznam and zkuste znovu.');
         } else if (err === 'DNS_UNRESOLVED') {
           alert('Domenou ' + host + ' se nepodařilo přeložit.\n\nZkontrolujte DNS záznam. Změny DNS mohou trvat až 24 hodin.');
         }
@@ -436,7 +440,12 @@ if [[ -z "${DB_PASS:-}" ]]; then
   DB_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)
 fi
 
-N8N_ENCRYPTION_KEY=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 48)
+# Použij starý klíč, pokud existuje, jinak vygeneruj nový
+if [[ -n "$EXISTING_KEY" ]]; then
+  N8N_ENCRYPTION_KEY="$EXISTING_KEY"
+else
+  N8N_ENCRYPTION_KEY=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 48)
+fi
 
 info "Instalace závislostí..."
 export DEBIAN_FRONTEND=noninteractive
@@ -599,7 +608,7 @@ server {
 EOF
 else
 cat >> /etc/nginx/sites-available/n8n <<EOF
-# 1. Catch-all blok pro HTTP IP přístupy -> přesměrování na doménu
+# 1. Catch-all blok pro HTTP IP přístupy včetně zachování cest (např. /setup)
 server {
     listen 80 default_server;
     server_name _;
@@ -652,7 +661,7 @@ if [[ "$USE_DOMAIN" == true ]]; then
     --redirect
   log "HTTPS certifikát nainstalován."
 
-  # 3. Dodatečné provázání HTTPS IP přístupů a jejich vynucené přesměrování na doménu
+  # 3. Dodatečné provázání HTTPS IP přístupů pro bezpečné přesměrování URI cest na doménu
   cat >> /etc/nginx/sites-available/n8n <<EOF
 
 server {
@@ -693,19 +702,17 @@ echo "  DB heslo:        ${DB_PASS}"
 echo "  Encryption key:  ${N8N_ENCRYPTION_KEY}"
 echo ""
 
-rm -f /tmp/n8n_config
-rm -f /tmp/setup.crt
-rm -f /tmp/setup.key
-rm -f /tmp/setup.html
-rm -f /tmp/setup_ip
+# Kompletní pročištění dočasných konfiguračních souborů
+rm -f /tmp/n8n_config /tmp/setup.crt /tmp/setup.key /tmp/setup.html /tmp/setup_ip
 
 apt-get autoremove -y
 apt-get autoclean -y
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 
+# Úplné samo-odstranění skriptu bez vyvolání chyb na pozadí
 SCRIPT_PATH="$(readlink -f "$0")"
 (
     sleep 2
     rm -f "$SCRIPT_PATH"
-) &>/dev/null
+) &>/dev/null &
