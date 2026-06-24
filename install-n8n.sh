@@ -34,7 +34,6 @@ else
   ufw allow 443/tcp > /dev/null 2>&1 || true
   rm -f /tmp/n8n_config
 
-  # Zapiš HTML do souboru (ne f-string, čisté závorky)
   cat > /tmp/setup.html << HTML
 <!DOCTYPE html>
 <html lang="cs">
@@ -360,7 +359,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
             success_content = '<div style="text-align:center; padding: 10px 0;"><div class="spinner"></div><h1>Instalace probíhá</h1><p style="color:var(--text-muted); font-size:14px; line-height: 1.6; margin-top: 12px;">Server se nyní konfiguruje. Za několik minut bude n8n dostupné na <br><strong style="color:var(--brand-primary); font-weight:600;">https://' + host + '</strong>.<br><br>Tuto stránku můžete bezpečně zavřít.</p></div>'
 
-            # Bezpečné regex nahrazení celého vnitřku divu card
             page = re.sub(
                 r'<div id="setup-content">.*?</div>\s*</div>\s*<script>',
                 '<div id="setup-content">' + success_content + '</div></div><script>',
@@ -424,9 +422,6 @@ PYEOF
 
   source /tmp/n8n_config
   rm -f /tmp/n8n_setup_server.py /tmp/setup.html /tmp/setup.crt /tmp/setup.key /tmp/setup_ip
-  # n8n_config zde schválně NEMAŽEME, aby Python mohl po refreshi číst konfiguraci
-
-  log "Konfigurace přijata: $N8N_HOST"
 fi
 
 if [[ "$N8N_HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -470,8 +465,8 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DB_NAME}')
 EOF
 log "PostgreSQL připraven."
 
-info "Instalace Node.js 20 LTS..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash - > /dev/null 2>&1
+info "Instalace Node.js 22 LTS..."
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash - > /dev/null 2>&1
 apt-get install -y -q nodejs
 log "Node.js $(node --version) nainstalován."
 
@@ -547,7 +542,6 @@ systemctl daemon-reload
 systemctl enable n8n
 log "systemd service vytvořena."
 
-# Zastav konfigurační webserver před spuštěním nginx (oba by chtěly port 443)
 if [[ -n "${WEBSERVER_PID:-}" ]]; then
   kill $WEBSERVER_PID 2>/dev/null || true
   wait $WEBSERVER_PID 2>/dev/null || true
@@ -605,6 +599,14 @@ server {
 EOF
 else
 cat >> /etc/nginx/sites-available/n8n <<EOF
+# 1. Catch-all blok pro HTTP IP přístupy -> přesměrování na doménu
+server {
+    listen 80 default_server;
+    server_name _;
+    return 301 https://${N8N_HOST}\$request_uri;
+}
+
+# 2. Primární HTTP konfigurace domény pro potřeby Certbotu
 server {
     listen 80;
     server_name ${N8N_HOST};
@@ -649,6 +651,19 @@ if [[ "$USE_DOMAIN" == true ]]; then
     --domains "$N8N_HOST" \
     --redirect
   log "HTTPS certifikát nainstalován."
+
+  # 3. Dodatečné provázání HTTPS IP přístupů a jejich vynucené přesměrování na doménu
+  cat >> /etc/nginx/sites-available/n8n <<EOF
+
+server {
+    listen 443 ssl default_server;
+    server_name _;
+    ssl_certificate /etc/letsencrypt/live/${N8N_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${N8N_HOST}/privkey.pem;
+    return 301 https://${N8N_HOST}\$request_uri;
+}
+EOF
+  nginx -t && systemctl restart nginx
 fi
 
 info "Spouštím n8n..."
@@ -678,22 +693,19 @@ echo "  DB heslo:        ${DB_PASS}"
 echo "  Encryption key:  ${N8N_ENCRYPTION_KEY}"
 echo ""
 
-# Úplné finální smazání dočasných souborů včetně configu
 rm -f /tmp/n8n_config
 rm -f /tmp/setup.crt
 rm -f /tmp/setup.key
 rm -f /tmp/setup.html
 rm -f /tmp/setup_ip
 
-# Vyčištění balíčků
 apt-get autoremove -y
 apt-get autoclean -y
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 
-# Smazání instalačního skriptu
 SCRIPT_PATH="$(readlink -f "$0")"
 (
     sleep 2
     rm -f "$SCRIPT_PATH"
-) &
+) &>/dev/null
