@@ -15,6 +15,9 @@ error() { echo -e "${RED}[!!]${NC} $1"; exit 1; }
 DB_NAME="n8n"
 DB_USER="n8n"
 
+SETUP_USER="n8n"
+SETUP_PASS="Testovaci_N8N-Server"
+
 # Perzistentní kontrola šifrovacího klíče pro zamezení chyb mismatching keys
 EXISTING_KEY=""
 if [[ -f /etc/n8n/n8n.env ]]; then
@@ -346,11 +349,43 @@ HTML
   sed -i "s/SERVER_IP_PLACEHOLDER/$DETECTED_IP/g" /tmp/setup.html
 
   cat > /tmp/n8n_setup_server.py << 'PYEOF'
-import http.server, ssl, urllib.parse, os, re, socket, sys
+import http.server, ssl, urllib.parse, os, re, socket, sys, base64
+
 SERVER_IP = open('/tmp/setup_ip').read().strip()
+SETUP_USER = open('/tmp/setup_user').read().strip()
+SETUP_PASS = open('/tmp/setup_pass').read().strip()
 HTML = open('/tmp/setup.html').read()
+
 class Handler(http.server.BaseHTTPRequestHandler):
+    def check_auth(self):
+        auth_header = self.headers.get('Authorization')
+        if auth_header is None:
+            return False
+
+        if not auth_header.startswith('Basic '):
+            return False
+
+        try:
+            # Dekódování "Basic base64(user:pass)"
+            encoded_credentials = auth_header.split(' ')[1]
+            decoded = base64.b64decode(encoded_credentials).decode('utf-8')
+            username, password = decoded.split(':', 1)
+            return username == SETUP_USER and password == SETUP_PASS
+        except Exception:
+            return False
+
+    def send_auth_request(self):
+        self.send_response(401)
+        self.send_header('WWW-Authenticate', 'Basic realm="N8N Installation Setup"')
+        self.send_header('Content-Type', 'text/plain; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(b'Neautorizovany pristup. Zadejte spravne jmeno a heslo.')
+
     def do_GET(self):
+        if not self.check_auth():
+            self.send_auth_request()
+            return
+
         if os.path.exists('/tmp/n8n_config'):
             host = "server"
             try:
@@ -376,7 +411,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.end_headers()
         self.wfile.write(page.encode())
+
     def do_POST(self):
+        if not self.check_auth():
+            self.send_auth_request()
+            return
+
         if self.path == '/submit':
             length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(length).decode()
@@ -404,8 +444,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b'ok')
+
     def log_message(self, *args):
         pass
+
 server = http.server.HTTPServer(('0.0.0.0', 443), Handler)
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ctx.load_cert_chain('/tmp/setup.crt', '/tmp/setup.key')
@@ -414,6 +456,9 @@ server.serve_forever()
 PYEOF
 
   echo "$DETECTED_IP" > /tmp/setup_ip
+  echo "$SETUP_USER" > /tmp/setup_user
+  echo "$SETUP_PASS" > /tmp/setup_pass
+
   python3 /tmp/n8n_setup_server.py &
   WEBSERVER_PID=$!
 
@@ -709,6 +754,8 @@ apt-get autoremove -y
 apt-get autoclean -y
 apt-get clean
 rm -rf /var/lib/apt/lists/*
+# Kompletní pročištění dočasných konfiguračních souborů
+rm -f /tmp/n8n_config /tmp/setup.crt /tmp/setup.key /tmp/setup.html /tmp/setup_ip /tmp/setup_user /tmp/setup_pass
 
 # Úplné samo-odstranění skriptu bez vyvolání chyb na pozadí
 SCRIPT_PATH="$(readlink -f "$0")"
