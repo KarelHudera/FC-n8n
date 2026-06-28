@@ -15,8 +15,8 @@ error() { echo -e "${RED}[!!]${NC} $1"; exit 1; }
 DB_NAME="n8n"
 DB_USER="n8n"
 
-SETUP_USER="n8n"
-SETUP_PASS="Testovaci_N8N-Server"
+SETUP_USER="${SETUP_USER:-n8n}"
+SETUP_PASS="${SETUP_PASS:-Testovaci_N8N-Server}"
 
 # Perzistentní kontrola šifrovacího klíče pro zamezení chyb mismatching keys
 EXISTING_KEY=""
