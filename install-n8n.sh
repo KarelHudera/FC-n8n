@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-RED='\033;31m'
-GREEN='\033;32m'
-BLUE='\033;34m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
 NC='\033[0m'
 
 log()   { echo -e "${GREEN}[OK]${NC} $1"; }
@@ -16,7 +16,14 @@ DB_NAME="n8n"
 DB_USER="n8n"
 
 SETUP_USER="${SETUP_USER:-n8n}"
-SETUP_PASS="${SETUP_PASS:-Testovaci_N8N-Server}"
+# SETUP_PASS_HASH je SHA-512 crypt hash z cloud-init (formát $6$salt$hash)
+# Nikdy nepřijímáme plaintext heslo
+SETUP_PASS_HASH="${SETUP_PASS_HASH:-}"
+
+[[ -z "$SETUP_PASS_HASH" ]] && error "SETUP_PASS_HASH není nastaven. Předej SHA-512 hash hesla."
+
+# Ověření že hash má správný formát ($6$ = SHA-512)
+[[ "$SETUP_PASS_HASH" != \$6\$* ]] && error "SETUP_PASS_HASH musí být SHA-512 crypt hash (začíná \$6\$)."
 
 # Perzistentní kontrola šifrovacího klíče pro zamezení chyb mismatching keys
 EXISTING_KEY=""
@@ -333,9 +340,9 @@ function handleSubmit() {
         btn.disabled = false;
         if (err.indexOf('DNS_MISMATCH') === 0) {
           var resolved = err.split(':')[1];
-          alert('Doména ' + host + ' směřuje na ' + resolved + ', ale IP tohoto serveru je SERVER_IP_PLACEHOLDER.\n\nZkontrolujte DNS záznam and zkuste znovu.');
+          alert('Doména ' + host + ' směřuje na ' + resolved + ', ale IP tohoto serveru je SERVER_IP_PLACEHOLDER.\n\nZkontrolujte DNS záznam a zkuste znovu.');
         } else if (err === 'DNS_UNRESOLVED') {
-          alert('Domenou ' + host + ' se nepodařilo přeložit.\n\nZkontrolujte DNS záznam. Změny DNS mohou trvat až 24 hodin.');
+          alert('Doménu ' + host + ' se nepodařilo přeložit.\n\nZkontrolujte DNS záznam. Změny DNS mohou trvat až 24 hodin.');
         }
       });
     }
@@ -348,29 +355,36 @@ HTML
 
   sed -i "s/SERVER_IP_PLACEHOLDER/$DETECTED_IP/g" /tmp/setup.html
 
+  # Python setup server — přijímá hash hesla přes env proměnnou, nikdy plaintext
   cat > /tmp/n8n_setup_server.py << 'PYEOF'
-import http.server, ssl, urllib.parse, os, re, socket, sys, base64
+import http.server, ssl, urllib.parse, os, re, socket, base64, crypt, hmac
 
-SERVER_IP = open('/tmp/setup_ip').read().strip()
-SETUP_USER = open('/tmp/setup_user').read().strip()
-SETUP_PASS = open('/tmp/setup_pass').read().strip()
-HTML = open('/tmp/setup.html').read()
+SERVER_IP   = os.environ['SETUP_SERVER_IP']
+SETUP_USER  = os.environ['SETUP_USER']
+# Hash ve formátu $6$salt$... — plaintext heslo nikdy není v paměti tohoto procesu
+PASS_HASH   = os.environ['SETUP_PASS_HASH']
+HTML        = open('/tmp/setup.html').read()
+
+def verify_password(username: str, password: str) -> bool:
+    """Ověření uživatelského jména a hesla proti SHA-512 crypt hashi."""
+    if not hmac.compare_digest(username, SETUP_USER):
+        return False
+    try:
+        expected = crypt.crypt(password, PASS_HASH)
+        # Timing-safe porovnání hashů
+        return hmac.compare_digest(expected, PASS_HASH)
+    except Exception:
+        return False
 
 class Handler(http.server.BaseHTTPRequestHandler):
-    def check_auth(self):
-        auth_header = self.headers.get('Authorization')
-        if auth_header is None:
-            return False
-
+    def check_auth(self) -> bool:
+        auth_header = self.headers.get('Authorization', '')
         if not auth_header.startswith('Basic '):
             return False
-
         try:
-            # Dekódování "Basic base64(user:pass)"
-            encoded_credentials = auth_header.split(' ')[1]
-            decoded = base64.b64decode(encoded_credentials).decode('utf-8')
+            decoded = base64.b64decode(auth_header.split(' ', 1)[1]).decode('utf-8')
             username, password = decoded.split(':', 1)
-            return username == SETUP_USER and password == SETUP_PASS
+            return verify_password(username, password)
         except Exception:
             return False
 
@@ -379,34 +393,39 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('WWW-Authenticate', 'Basic realm="N8N Installation Setup"')
         self.send_header('Content-Type', 'text/plain; charset=utf-8')
         self.end_headers()
-        self.wfile.write(b'Neautorizovany pristup. Zadejte spravne jmeno a heslo.')
+        self.wfile.write('Neautorizovaný přístup.'.encode('utf-8'))
+
+    def _render_page(self) -> str:
+        if not os.path.exists('/tmp/n8n_config'):
+            return HTML
+        host = "server"
+        try:
+            with open('/tmp/n8n_config') as f:
+                for line in f:
+                    if line.startswith('N8N_HOST='):
+                        host = line.split('=', 1)[1].strip()
+        except Exception:
+            pass
+        success = (
+            '<div style="text-align:center; padding: 10px 0;">'
+            '<div class="spinner"></div>'
+            '<h1>Instalace probíhá</h1>'
+            '<p style="color:var(--text-muted); font-size:14px; line-height: 1.6; margin-top: 12px;">'
+            'Server se nyní konfiguruje. Za několik minut bude n8n dostupné na <br>'
+            '<strong style="color:var(--brand-primary); font-weight:600;">https://' + host + '</strong>.<br><br>'
+            'Tuto stránku můžete bezpečně zavřít.</p></div>'
+        )
+        return re.sub(
+            r'<div id="setup-content">.*?</div>\s*</div>\s*<script>',
+            '<div id="setup-content">' + success + '</div></div><script>',
+            HTML, flags=re.DOTALL
+        )
 
     def do_GET(self):
         if not self.check_auth():
             self.send_auth_request()
             return
-
-        if os.path.exists('/tmp/n8n_config'):
-            host = "server"
-            try:
-                with open('/tmp/n8n_config', 'r') as f:
-                    for line in f:
-                        if line.startswith('N8N_HOST='):
-                            host = line.split('=')[1].strip()
-            except:
-                pass
-
-            success_content = '<div style="text-align:center; padding: 10px 0;"><div class="spinner"></div><h1>Instalace probíhá</h1><p style="color:var(--text-muted); font-size:14px; line-height: 1.6; margin-top: 12px;">Server se nyní konfiguruje. Za několik minut bude n8n dostupné na <br><strong style="color:var(--brand-primary); font-weight:600;">https://' + host + '</strong>.<br><br>Tuto stránku můžete bezpečně zavřít.</p></div>'
-
-            page = re.sub(
-                r'<div id="setup-content">.*?</div>\s*</div>\s*<script>',
-                '<div id="setup-content">' + success_content + '</div></div><script>',
-                HTML,
-                flags=re.DOTALL
-            )
-        else:
-            page = HTML
-
+        page = self._render_page()
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.end_headers()
@@ -416,34 +435,36 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not self.check_auth():
             self.send_auth_request()
             return
-
-        if self.path == '/submit':
-            length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(length).decode()
-            params = urllib.parse.parse_qs(body)
-            host = params.get('host', [''])[0]
-            email = params.get('email', [''])[0]
-            is_ip = bool(re.match(r'^\d+\.\d+\.\d+\.\d+$', host))
-            if not is_ip:
-                try:
-                    resolved = socket.gethostbyname(host)
-                    if resolved != SERVER_IP:
-                        self.send_response(400)
-                        self.send_header('Content-Type', 'text/plain')
-                        self.end_headers()
-                        self.wfile.write(('DNS_MISMATCH:' + resolved).encode())
-                        return
-                except socket.gaierror:
+        if self.path != '/submit':
+            self.send_response(404)
+            self.end_headers()
+            return
+        length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(length).decode()
+        params = urllib.parse.parse_qs(body)
+        host  = params.get('host',  [''])[0].strip()
+        email = params.get('email', [''])[0].strip()
+        is_ip = bool(re.match(r'^\d+\.\d+\.\d+\.\d+$', host))
+        if not is_ip:
+            try:
+                resolved = socket.gethostbyname(host)
+                if resolved != SERVER_IP:
                     self.send_response(400)
                     self.send_header('Content-Type', 'text/plain')
                     self.end_headers()
-                    self.wfile.write(b'DNS_UNRESOLVED')
+                    self.wfile.write(('DNS_MISMATCH:' + resolved).encode())
                     return
-            with open('/tmp/n8n_config', 'w') as f:
-                f.write('N8N_HOST=' + host + '\nN8N_EMAIL=' + email + '\n')
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b'ok')
+            except socket.gaierror:
+                self.send_response(400)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(b'DNS_UNRESOLVED')
+                return
+        with open('/tmp/n8n_config', 'w') as f:
+            f.write('N8N_HOST=' + host + '\nN8N_EMAIL=' + email + '\n')
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'ok')
 
     def log_message(self, *args):
         pass
@@ -455,10 +476,10 @@ server.socket = ctx.wrap_socket(server.socket, server_side=True)
 server.serve_forever()
 PYEOF
 
-  echo "$DETECTED_IP" > /tmp/setup_ip
-  echo "$SETUP_USER" > /tmp/setup_user
-  echo "$SETUP_PASS" > /tmp/setup_pass
-
+  # Spuštění Python serveru — hash předán přes env, žádné /tmp soubory s heslem
+  SETUP_SERVER_IP="$DETECTED_IP" \
+  SETUP_USER="$SETUP_USER" \
+  SETUP_PASS_HASH="$SETUP_PASS_HASH" \
   python3 /tmp/n8n_setup_server.py &
   WEBSERVER_PID=$!
 
@@ -470,7 +491,7 @@ PYEOF
   done
 
   source /tmp/n8n_config
-  rm -f /tmp/n8n_setup_server.py /tmp/setup.html /tmp/setup.crt /tmp/setup.key /tmp/setup_ip
+  rm -f /tmp/n8n_setup_server.py /tmp/setup.html /tmp/setup.crt /tmp/setup.key
 fi
 
 if [[ "$N8N_HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -653,14 +674,12 @@ server {
 EOF
 else
 cat >> /etc/nginx/sites-available/n8n <<EOF
-# 1. Catch-all blok pro HTTP IP přístupy včetně zachování cest (např. /setup)
 server {
     listen 80 default_server;
     server_name _;
     return 301 https://${N8N_HOST}\$request_uri;
 }
 
-# 2. Primární HTTP konfigurace domény pro potřeby Certbotu
 server {
     listen 80;
     server_name ${N8N_HOST};
@@ -706,7 +725,6 @@ if [[ "$USE_DOMAIN" == true ]]; then
     --redirect
   log "HTTPS certifikát nainstalován."
 
-  # 3. Dodatečné provázání HTTPS IP přístupů pro bezpečné přesměrování URI cest na doménu
   cat >> /etc/nginx/sites-available/n8n <<EOF
 
 server {
@@ -736,30 +754,26 @@ fi
 echo ""
 echo "Instalace dokončena."
 echo ""
-echo "  URL:             https://${N8N_HOST}"
+echo "  URL:         https://${N8N_HOST}"
 echo ""
-echo "  Logy:            journalctl -u n8n -f"
-echo "  Restart:         systemctl restart n8n"
-echo "  Aktualizace:     npm update -g n8n"
+echo "  Logy:        journalctl -u n8n -f"
+echo "  Restart:     systemctl restart n8n"
+echo "  Aktualizace: npm update -g n8n"
 echo ""
-echo "  Konfig:          /etc/n8n/n8n.env  (root only)"
-echo "  DB heslo:        ${DB_PASS}"
-echo "  Encryption key:  ${N8N_ENCRYPTION_KEY}"
+echo "  Konfig:      /etc/n8n/n8n.env  (root only)"
 echo ""
+# DB heslo a encryption key záměrně nevypisujeme do logu —
+# jsou uloženy v /etc/n8n/n8n.env (chmod 600, vlastník root)
 
-# Kompletní pročištění dočasných konfiguračních souborů
-rm -f /tmp/n8n_config /tmp/setup.crt /tmp/setup.key /tmp/setup.html /tmp/setup_ip
+# Kompletní pročištění dočasných souborů
+rm -f /tmp/n8n_config /tmp/setup.crt /tmp/setup.key /tmp/setup.html /tmp/setup_ip \
+      /tmp/n8n_setup_server.py
 
-apt-get autoremove -y
-apt-get autoclean -y
-apt-get clean
+apt-get autoremove -y -q
+apt-get autoclean -y -q
+apt-get clean -q
 rm -rf /var/lib/apt/lists/*
-# Kompletní pročištění dočasných konfiguračních souborů
-rm -f /tmp/n8n_config /tmp/setup.crt /tmp/setup.key /tmp/setup.html /tmp/setup_ip /tmp/setup_user /tmp/setup_pass
 
-# Úplné samo-odstranění skriptu bez vyvolání chyb na pozadí
+# Samo-odstranění skriptu
 SCRIPT_PATH="$(readlink -f "$0")"
-(
-    sleep 2
-    rm -f "$SCRIPT_PATH"
-) &>/dev/null &
+(sleep 2 && rm -f "$SCRIPT_PATH") &>/dev/null &
