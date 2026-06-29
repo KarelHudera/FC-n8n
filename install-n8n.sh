@@ -16,14 +16,14 @@ DB_NAME="n8n"
 DB_USER="n8n"
 
 SETUP_USER="${SETUP_USER:-n8n}"
-# SETUP_PASS_HASH je SHA-512 crypt hash z cloud-init (formát $6$salt$hash)
+# SETUP_PASS_HASH je SHA-256 crypt hash z cloud-init (formát $5$salt$hash)
 # Nikdy nepřijímáme plaintext heslo
 SETUP_PASS_HASH="${SETUP_PASS_HASH:-}"
 
-[[ -z "$SETUP_PASS_HASH" ]] && error "SETUP_PASS_HASH není nastaven. Předej SHA-512 hash hesla."
+[[ -z "$SETUP_PASS_HASH" ]] && error "SETUP_PASS_HASH není nastaven. Předej SHA-256 crypt hash hesla."
 
-# Ověření že hash má správný formát ($6$ = SHA-512)
-[[ "$SETUP_PASS_HASH" != \$6\$* ]] && error "SETUP_PASS_HASH musí být SHA-512 crypt hash (začíná \$6\$)."
+# Ověření že hash má správný formát ($5$ = SHA-256 crypt)
+[[ "$SETUP_PASS_HASH" != \$5\$* ]] && error "SETUP_PASS_HASH musí být SHA-256 crypt hash (začíná \$5\$)."
 
 # Perzistentní kontrola šifrovacího klíče pro zamezení chyb mismatching keys
 EXISTING_KEY=""
@@ -149,9 +149,7 @@ else
     transition: border-color 0.2s, background-color 0.2s;
     background-color: #ffffff;
   }
-  .option:hover {
-    border-color: var(--brand-primary);
-  }
+  .option:hover { border-color: var(--brand-primary); }
   .option input[type=radio] {
     accent-color: var(--brand-primary);
     width: 16px;
@@ -162,17 +160,8 @@ else
     border-color: var(--brand-primary);
     background-color: #f4f9ff;
   }
-  .option-label {
-    font-size: 14px;
-    color: var(--text-heading);
-    font-weight: 500;
-  }
-  .option-desc {
-    font-size: 12.5px;
-    color: var(--text-muted);
-    margin-top: 3px;
-    line-height: 17px;
-  }
+  .option-label { font-size: 14px; color: var(--text-heading); font-weight: 500; }
+  .option-desc { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; line-height: 17px; }
 
   #domain-section { display: none; margin-bottom: 24px; }
   #domain-section.visible { display: block; }
@@ -190,12 +179,8 @@ else
     font-family: var(--font-family-base);
     background-color: #ffffff;
   }
-  input[type=text]:focus {
-    border-color: var(--brand-primary);
-  }
-  input[type=text]::placeholder {
-    color: #b3b5b9;
-  }
+  input[type=text]:focus { border-color: var(--brand-primary); }
+  input[type=text]::placeholder { color: #b3b5b9; }
 
   .dns-info {
     background: #f0f7ff;
@@ -355,32 +340,57 @@ HTML
 
   sed -i "s/SERVER_IP_PLACEHOLDER/$DETECTED_IP/g" /tmp/setup.html
 
-  # Python setup server — přijímá hash hesla přes env proměnnou, nikdy plaintext
+  # Python setup server — přijímá $5$ hash přes env proměnnou, nikdy plaintext.
+  # Ověření pomocí `openssl passwd -5` — funguje na Python 3.13+ bez deprecated crypt modulu.
   cat > /tmp/n8n_setup_server.py << 'PYEOF'
 import http.server, ssl, urllib.parse, os, re, socket, base64, hmac, subprocess
 
-SERVER_IP   = os.environ['SETUP_SERVER_IP']
-SETUP_USER  = os.environ['SETUP_USER']
-# Hash ve formátu $6$salt$... — plaintext heslo nikdy není v paměti tohoto procesu
-PASS_HASH   = os.environ['SETUP_PASS_HASH']
-HTML        = open('/tmp/setup.html').read()
+SERVER_IP  = os.environ['SETUP_SERVER_IP']
+SETUP_USER = os.environ['SETUP_USER']
+# Hash ve formátu $5$salt$... (SHA-256 crypt z cloud-init)
+# Plaintext heslo nikdy není uloženo ani předáno — pouze tento hash
+PASS_HASH  = os.environ['SETUP_PASS_HASH']
+HTML       = open('/tmp/setup.html').read()
+
+
+def _extract_salt(hash_str: str) -> str:
+    """Extrahuje salt z $5$salt$hash — vrátí celý prefix $5$salt$ pro openssl."""
+    # Formát: $5$salt$hash nebo $5$rounds=N$salt$hash
+    parts = hash_str.split('$')
+    # parts = ['', '5', 'salt', 'hash'] nebo ['', '5', 'rounds=N', 'salt', 'hash']
+    if len(parts) == 4:
+        return f'$5${parts[2]}$'
+    if len(parts) == 5 and parts[2].startswith('rounds='):
+        return f'$5${parts[2]}${parts[3]}$'
+    return ''
+
 
 def verify_password(username: str, password: str) -> bool:
+    """
+    Ověří heslo proti SHA-256 crypt hashi pomocí `openssl passwd -5`.
+    Používá timing-safe porovnání aby zamezil timing útokům.
+    Nevyžaduje žádné Python moduly mimo stdlib.
+    """
     if not hmac.compare_digest(username, SETUP_USER):
         return False
+    salt = _extract_salt(PASS_HASH)
+    if not salt:
+        return False
     try:
-        process = subprocess.Popen(
-            ['/usr/sbin/chpasswd', '-e'],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
+        result = subprocess.run(
+            ['openssl', 'passwd', '-5', '-salt', salt, password],
+            capture_output=True,
+            text=True,
+            timeout=5
         )
-        input_data = f"{username}:{PASS_HASH}\n"
-        process.communicate(input=input_data, timeout=2)
-        return process.returncode == 0
+        if result.returncode != 0:
+            return False
+        computed = result.stdout.strip()
+        # Timing-safe porovnání — zamezí měření délky shody
+        return hmac.compare_digest(computed, PASS_HASH)
     except Exception:
         return False
+
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def check_auth(self) -> bool:
@@ -404,7 +414,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _render_page(self) -> str:
         if not os.path.exists('/tmp/n8n_config'):
             return HTML
-        host = "server"
+        host = 'server'
         try:
             with open('/tmp/n8n_config') as f:
                 for line in f:
@@ -475,6 +485,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+
 server = http.server.HTTPServer(('0.0.0.0', 443), Handler)
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ctx.load_cert_chain('/tmp/setup.crt', '/tmp/setup.key')
@@ -482,7 +493,7 @@ server.socket = ctx.wrap_socket(server.socket, server_side=True)
 server.serve_forever()
 PYEOF
 
-  # Spuštění Python serveru — hash předán přes env, žádné /tmp soubory s heslem
+  # Spuštění Python serveru — $5$ hash předán přes env, nikdy plaintext
   SETUP_SERVER_IP="$DETECTED_IP" \
   SETUP_USER="$SETUP_USER" \
   SETUP_PASS_HASH="$SETUP_PASS_HASH" \
@@ -772,7 +783,7 @@ echo ""
 # jsou uloženy v /etc/n8n/n8n.env (chmod 600, vlastník root)
 
 # Kompletní pročištění dočasných souborů
-rm -f /tmp/n8n_config /tmp/setup.crt /tmp/setup.key /tmp/setup.html /tmp/setup_ip \
+rm -f /tmp/n8n_config /tmp/setup.crt /tmp/setup.key /tmp/setup.html \
       /tmp/n8n_setup_server.py
 
 apt-get autoremove -y -q
