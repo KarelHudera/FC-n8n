@@ -354,14 +354,14 @@ HTML       = open('/tmp/setup.html').read()
 
 
 def _extract_salt(hash_str: str) -> str:
-    """Extrahuje salt z $5$salt$hash — vrátí celý prefix $5$salt$ pro openssl."""
+    """Extrahuje holý salt z $5$salt$hash pro předání do openssl passwd -salt."""
     # Formát: $5$salt$hash nebo $5$rounds=N$salt$hash
     parts = hash_str.split('$')
     # parts = ['', '5', 'salt', 'hash'] nebo ['', '5', 'rounds=N', 'salt', 'hash']
     if len(parts) == 4:
-        return f'$5${parts[2]}$'
+        return parts[2]
     if len(parts) == 5 and parts[2].startswith('rounds='):
-        return f'$5${parts[2]}${parts[3]}$'
+        return parts[3]
     return ''
 
 
