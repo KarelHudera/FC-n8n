@@ -357,7 +357,7 @@ HTML
 
   # Python setup server — přijímá hash hesla přes env proměnnou, nikdy plaintext
   cat > /tmp/n8n_setup_server.py << 'PYEOF'
-import http.server, ssl, urllib.parse, os, re, socket, base64, crypt, hmac
+import http.server, ssl, urllib.parse, os, re, socket, base64, hmac, subprocess
 
 SERVER_IP   = os.environ['SETUP_SERVER_IP']
 SETUP_USER  = os.environ['SETUP_USER']
@@ -366,13 +366,19 @@ PASS_HASH   = os.environ['SETUP_PASS_HASH']
 HTML        = open('/tmp/setup.html').read()
 
 def verify_password(username: str, password: str) -> bool:
-    """Ověření uživatelského jména a hesla proti SHA-512 crypt hashi."""
     if not hmac.compare_digest(username, SETUP_USER):
         return False
     try:
-        expected = crypt.crypt(password, PASS_HASH)
-        # Timing-safe porovnání hashů
-        return hmac.compare_digest(expected, PASS_HASH)
+        process = subprocess.Popen(
+            ['/usr/sbin/chpasswd', '-e'],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        input_data = f"{username}:{PASS_HASH}\n"
+        process.communicate(input=input_data, timeout=2)
+        return process.returncode == 0
     except Exception:
         return False
 
