@@ -41,7 +41,9 @@ else
   apt-get update -q
   apt-get install -y -q python3 ufw openssl
 
-  openssl req -x509 -nodes -days 1 -newkey rsa:2048 \
+  # Self-signed certifikát pro setup formulář — platnost 7 dní (stačí na dobu instalace,
+  # nikdy se nepoužívá produkčně, po dokončení se maže)
+  openssl req -x509 -nodes -days 7 -newkey rsa:2048 \
     -keyout /tmp/setup.key \
     -out /tmp/setup.crt \
     -subj "/CN=$DETECTED_IP" \
@@ -604,7 +606,6 @@ info "Instalace n8n..."
 if ! id "n8n" &>/dev/null; then
   useradd --system --shell /usr/sbin/nologin --create-home --home-dir /opt/n8n n8n
 fi
-npm install -g npm@latest
 npm install -g n8n
 mkdir -p /opt/n8n/.n8n
 chown -R n8n:n8n /opt/n8n
@@ -664,6 +665,13 @@ ProtectSystem=strict
 ReadWritePaths=/opt/n8n/.n8n
 ProtectHome=true
 
+# Omezení paměti — zabrání tomu, aby n8n při velké zátěži sebral RAM celému systému
+# (DB, nginx, SSH). Server je dedikovaný pro n8n, takže limit je relativně vysoký —
+# 15% RAM zůstává jako rezerva pro ostatní služby. Procenta se vztahují k celkové
+# paměti stroje, takže fungují stejně na malé i velké VPS bez ručního přepočtu.
+MemoryMax=85%
+MemoryHigh=75%
+
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -711,6 +719,7 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     location / {
         proxy_pass http://127.0.0.1:5678;
         proxy_http_version 1.1;
@@ -780,6 +789,11 @@ if [[ "$USE_DOMAIN" == true ]]; then
     --redirect
   log "HTTPS certifikát nainstalován."
 
+  # certbot si automaticky zaregistruje systemd timer pro obnovu (certbot.timer),
+  # žádná další konfigurace zde není potřeba
+
+  # HSTS pro doménovou variantu — certbot upravuje vlastní server blok, tento
+  # blok přidáváme zvlášť pro fallback IP přístup
   cat >> /etc/nginx/sites-available/n8n <<EOF
 
 server {
@@ -787,6 +801,7 @@ server {
     server_name _;
     ssl_certificate /etc/letsencrypt/live/${N8N_HOST}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${N8N_HOST}/privkey.pem;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     return 301 https://${N8N_HOST}\$request_uri;
 }
 EOF
