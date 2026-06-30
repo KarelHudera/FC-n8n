@@ -155,11 +155,9 @@ else
     background-color: #ffffff;
     position: relative;
   }
-  .option:hover { border-color: var(--brand-primary); }
+  .option:hover { border-color: #C5C9D1; }
   .option.selected {
-    border-color: var(--brand-primary);
     background-color: #f4f9ff;
-    box-shadow: 0 0 0 1px var(--brand-primary) inset;
   }
 
   /* skryjeme nativní radio, vykreslíme vlastní kroužek (styl podobný icheck) */
@@ -220,7 +218,6 @@ else
   input[type=text]:hover { border-color: #C5C9D1; }
   input[type=text]:focus {
     border-color: var(--brand-primary);
-    box-shadow: 0 0 0 3px rgba(6,155,254,0.12);
   }
   input[type=text]::placeholder { color: #b3b5b9; }
 
