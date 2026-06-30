@@ -62,7 +62,7 @@ else
 <style>
   :root {
     --font-family-base: "Manrope", sans-serif;
-    --body-bg: #f8f9fa;
+    --body-bg: #ffffff;
     --card-bg: #ffffff;
     --border-color: #DADDE6;
     --border-color-light: #EFEFF1;
