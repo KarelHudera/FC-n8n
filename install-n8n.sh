@@ -59,7 +59,7 @@ else
 <title>Instalace n8n</title>
 <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.2.96/css/materialdesignicons.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-html<style>
+<style>
   :root {
     --font-family-base: "Manrope", sans-serif;
     --body-bg: #f8f9fa;
@@ -153,6 +153,7 @@ html<style>
     cursor: pointer;
     transition: border-color .15s, background-color .15s, box-shadow .15s;
     background-color: #ffffff;
+    position: relative;
   }
   .option:hover { border-color: var(--brand-primary); }
   .option.selected {
