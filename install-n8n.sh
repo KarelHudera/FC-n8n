@@ -59,18 +59,22 @@ else
 <title>Instalace n8n</title>
 <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.2.96/css/materialdesignicons.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
+html<style>
   :root {
     --font-family-base: "Manrope", sans-serif;
     --body-bg: #f8f9fa;
     --card-bg: #ffffff;
-    --border-color: #dadde6;
-    --text-main: #505459;
+    --border-color: #DADDE6;
+    --border-color-light: #EFEFF1;
+    --text-main: #4B4F58;
     --text-heading: #17191C;
-    --text-muted: #737880;
+    --text-muted: #6D7482;
     --brand-primary: #069bfe;
     --brand-primary-hover: #058ae2;
-    --border-radius: 8px;
+    --brand-primary-faded: #E5EFFF;
+    --border-radius: 12px;
+    --border-radius-sm: 6px;
+    --box-shadow-card: 0px 0px 1px rgba(0,0,0,.04), 0px 2px 24px rgba(0,0,0,.08);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -93,8 +97,8 @@ else
     padding: 36px;
     max-width: 500px;
     width: 100%;
-    border: 1px solid var(--border-color);
-    box-shadow: 0px 2px 16px rgba(0, 0, 0, 0.03);
+    border: 1px solid var(--border-color-light);
+    box-shadow: var(--box-shadow-card);
   }
 
   h1 {
@@ -113,8 +117,8 @@ else
   }
 
   .ip-box {
-    background: #E5EEFF;
-    border-radius: 6px;
+    background: var(--brand-primary-faded);
+    border-radius: var(--border-radius-sm);
     padding: 14px 18px;
     margin-bottom: 24px;
     font-size: 14px;
@@ -138,54 +142,91 @@ else
     margin-bottom: 24px;
   }
 
+  /* --- karta s volbou (option) --- */
   .option {
     display: flex;
     align-items: flex-start;
     gap: 12px;
     padding: 14px 16px;
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
+    border-radius: var(--border-radius-sm);
     cursor: pointer;
-    transition: border-color 0.2s, background-color 0.2s;
+    transition: border-color .15s, background-color .15s, box-shadow .15s;
     background-color: #ffffff;
   }
   .option:hover { border-color: var(--brand-primary); }
-  .option input[type=radio] {
-    accent-color: var(--brand-primary);
-    width: 16px;
-    height: 16px;
-    margin-top: 2px;
-  }
   .option.selected {
     border-color: var(--brand-primary);
     background-color: #f4f9ff;
+    box-shadow: 0 0 0 1px var(--brand-primary) inset;
   }
+
+  /* skryjeme nativní radio, vykreslíme vlastní kroužek (styl podobný icheck) */
+  .option input[type=radio] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .radio-circle {
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--border-color);
+    margin-top: 2px;
+    position: relative;
+    transition: border-color .15s, background-color .15s;
+    background: #fff;
+  }
+  .option:hover .radio-circle { border-color: var(--brand-primary); }
+  .option.selected .radio-circle {
+    border-color: var(--brand-primary);
+    background: var(--brand-primary);
+  }
+  .option.selected .radio-circle::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #fff;
+    transform: translate(-50%, -50%);
+  }
+
   .option-label { font-size: 14px; color: var(--text-heading); font-weight: 500; }
   .option-desc { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; line-height: 17px; }
 
   #domain-section { display: none; margin-bottom: 24px; }
   #domain-section.visible { display: block; }
 
+  /* --- inputy ve stylu webu --- */
   input[type=text] {
     width: 100%;
-    height: 40px;
+    height: 44px;
     padding: 0 14px;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: var(--border-radius-sm);
     font-size: 14px;
     color: var(--text-main);
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color .15s, box-shadow .15s;
     font-family: var(--font-family-base);
     background-color: #ffffff;
   }
-  input[type=text]:focus { border-color: var(--brand-primary); }
+  input[type=text]:hover { border-color: #C5C9D1; }
+  input[type=text]:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(6,155,254,0.12);
+  }
   input[type=text]::placeholder { color: #b3b5b9; }
 
   .dns-info {
     background: #f0f7ff;
     border: 1px solid #bcd7ff;
-    border-radius: 6px;
+    border-radius: var(--border-radius-sm);
     padding: 14px 16px;
     margin-top: 14px;
     font-size: 13px;
@@ -205,14 +246,14 @@ else
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.15s, border-color 0.15s;
+    transition: background-color .15s, border-color .15s;
     vertical-align: top;
     white-space: nowrap;
     outline: 0;
     font-weight: 500;
-    border-radius: 6px;
+    border-radius: var(--border-radius-sm);
     font-size: 14px;
-    height: 40px;
+    height: 44px;
     padding: 0 16px;
     color: #ffffff;
     background-color: var(--brand-primary);
@@ -224,15 +265,15 @@ else
     border-color: var(--brand-primary-hover);
   }
   .lu-btn--plain.lu-btn--primary:disabled {
-    background-color: #dadde6;
-    border-color: #dadde6;
+    background-color: #DADDE6;
+    border-color: #DADDE6;
     cursor: not-allowed;
   }
   .lu-btn__icon { margin-right: 6px; font-size: 18px; display: inline-flex; align-items: center; }
   .lu-btn__text { display: inline-block; line-height: 1; }
 
   .note { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 16px; }
-  .spinner { display: block; width: 44px; height: 44px; border: 3px solid #edeff2; border-top-color: var(--brand-primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 24px; }
+  .spinner { display: block; width: 44px; height: 44px; border: 3px solid #edeff2; border-top-color: var(--brand-primary); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 24px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
@@ -246,6 +287,7 @@ else
     <div class="options">
       <label class="option selected" id="opt-ip">
         <input type="radio" name="mode" value="ip" checked onchange="selectMode('ip')">
+        <span class="radio-circle"></span>
         <div>
           <div class="option-label">Použít IP adresu</div>
           <div class="option-desc">Rychlé, bez nastavení DNS. Bude použit self-signed certifikát.</div>
@@ -253,6 +295,7 @@ else
       </label>
       <label class="option" id="opt-domain">
         <input type="radio" name="mode" value="domain" onchange="selectMode('domain')">
+        <span class="radio-circle"></span>
         <div>
           <div class="option-label">Použít vlastní doménu</div>
           <div class="option-desc">Doporučeno. Automatický HTTPS certifikát přes Let's Encrypt.</div>
