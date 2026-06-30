@@ -156,9 +156,6 @@ else
     position: relative;
   }
   .option:hover { border-color: #C5C9D1; }
-  .option.selected {
-    background-color: #f4f9ff;
-  }
 
   /* skryjeme nativní radio, vykreslíme vlastní kroužek (styl podobný icheck) */
   .option input[type=radio] {
