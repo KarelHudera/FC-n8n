@@ -238,30 +238,27 @@ else
     <h1>Automatické aktualizace</h1>
     <p class="subtitle">Nastavte plán automatické aktualizace n8n na nejnovější stabilní verzi.</p>
     <div class="options" style="margin-bottom: 24px;">
-      <label class="option selected" id="opt-no-update">
-        <input type="radio" name="update" value="none" checked onclick="selectUpdate('none')">
-        <span class="radio-circle"></span>
+      <div class="option" id="opt-none" onclick="selectUpdate('none')">
+        <span class="radio-circle" id="rc-none"></span>
         <div>
           <div class="option-label">Bez automatických aktualizací</div>
-          <div class="option-desc">Aktualizace provedu ručně příkazem <code style="background:#f1f3f5;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;">npm install -g n8n@latest</code></div>
+          <div class="option-desc">Aktualizace provedu ručně příkazem <span style="background:#f1f3f5;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;">npm install -g n8n@latest</span></div>
         </div>
-      </label>
-      <label class="option" id="opt-weekly">
-        <input type="radio" name="update" value="weekly" onclick="selectUpdate('weekly')">
-        <span class="radio-circle"></span>
+      </div>
+      <div class="option" id="opt-weekly" onclick="selectUpdate('weekly')">
+        <span class="radio-circle" id="rc-weekly"></span>
         <div>
           <div class="option-label">Týdně</div>
           <div class="option-desc">Aktualizace jednou týdně ve vybraný den a čas.</div>
         </div>
-      </label>
-      <label class="option" id="opt-monthly">
-        <input type="radio" name="update" value="monthly" onclick="selectUpdate('monthly')">
-        <span class="radio-circle"></span>
+      </div>
+      <div class="option" id="opt-monthly" onclick="selectUpdate('monthly')">
+        <span class="radio-circle" id="rc-monthly"></span>
         <div>
           <div class="option-label">Měsíčně</div>
           <div class="option-desc">Aktualizace jednou měsíčně ve vybraný den a čas.</div>
         </div>
-      </label>
+      </div>
     </div>
 
     <!-- Plán pro týdenní aktualizace -->
@@ -394,21 +391,27 @@ else
 <script>
 var selectedHost = sessionStorage.getItem('n8nHost') || '';
 var selectedEmail = sessionStorage.getItem('n8nEmail') || '';
+var currentUpdate = 'none';
 
 // Obnova stránky po refreshi
 (function() {
   var page = sessionStorage.getItem('n8nPage');
   if (page === '2') {
-    document.getElementById('page1').classList.remove('active');
-    document.getElementById('page2').classList.add('active');
+    showPage('page2');
     selectUpdate('none');
   } else if (page === '3') {
-    document.getElementById('page1').classList.remove('active');
-    document.getElementById('page3').classList.add('active');
+    showPage('page3');
     var url = sessionStorage.getItem('n8nHost');
     if (url) document.getElementById('final-url').textContent = 'https://' + url;
   }
 })();
+
+function showPage(id) {
+  ['page1','page2','page3'].forEach(function(p) {
+    document.getElementById(p).classList.remove('active');
+  });
+  document.getElementById(id).classList.add('active');
+}
 
 function selectMode(mode) {
   document.getElementById('opt-ip').classList.toggle('selected', mode === 'ip');
@@ -418,21 +421,24 @@ function selectMode(mode) {
 function updateDns(value) {
   document.getElementById('dns-name').textContent = value || 'n8n.vasestranka.cz';
 }
+
 function selectUpdate(type) {
-  ['no-update','weekly','monthly'].forEach(function(t) {
-    document.getElementById('opt-' + t).classList.remove('selected');
+  currentUpdate = type;
+  ['none','weekly','monthly'].forEach(function(t) {
+    var opt = document.getElementById('opt-' + t);
+    var rc  = document.getElementById('rc-' + t);
+    if (opt) opt.classList.toggle('selected', t === type);
+    if (rc)  rc.classList.toggle('selected', t === type);
   });
-  document.getElementById('opt-' + type).classList.add('selected');
   document.getElementById('schedule-weekly').style.display  = type === 'weekly'  ? 'block' : 'none';
   document.getElementById('schedule-monthly').style.display = type === 'monthly' ? 'block' : 'none';
-  document.getElementById('btn-install').disabled = false;
 }
+
 function goToPage1() {
   sessionStorage.removeItem('n8nPage');
   sessionStorage.removeItem('n8nHost');
   sessionStorage.removeItem('n8nEmail');
-  document.getElementById('page1').classList.add('active');
-  document.getElementById('page2').classList.remove('active');
+  showPage('page1');
 }
 function goToPage2() {
   var mode   = document.querySelector('input[name=mode]:checked').value;
@@ -447,19 +453,14 @@ function goToPage2() {
   sessionStorage.setItem('n8nPage', '2');
   sessionStorage.setItem('n8nHost', selectedHost);
   sessionStorage.setItem('n8nEmail', selectedEmail);
-  document.getElementById('page1').classList.remove('active');
-  document.getElementById('page2').classList.add('active');
-  // Inicializace stránky 2 — zajistí správný vizuální stav radio buttonů
+  showPage('page2');
   selectUpdate('none');
 }
 function handleSubmit() {
-  var updateType = document.querySelector('input[name=update]:checked');
-  if (!updateType) { alert('Vyberte možnost aktualizací.'); return; }
-  var update = updateType.value;
   var schedule = '';
-  if (update === 'weekly') {
+  if (currentUpdate === 'weekly') {
     schedule = document.getElementById('weekly-hour').value + ' * * ' + document.getElementById('weekly-day').value;
-  } else if (update === 'monthly') {
+  } else if (currentUpdate === 'monthly') {
     schedule = document.getElementById('monthly-hour').value + ' ' + document.getElementById('monthly-day').value + ' * *';
   }
   var btn = document.getElementById('btn-install');
@@ -471,14 +472,13 @@ function handleSubmit() {
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: 'host=' + encodeURIComponent(selectedHost)
         + '&email=' + encodeURIComponent(selectedEmail)
-        + '&update=' + encodeURIComponent(update)
+        + '&update=' + encodeURIComponent(currentUpdate)
         + '&schedule=' + encodeURIComponent(schedule)
   }).then(function(r) {
     if (r.ok) {
       document.getElementById('final-url').textContent = 'https://' + selectedHost;
       sessionStorage.setItem('n8nPage', '3');
-      document.getElementById('page2').classList.remove('active');
-      document.getElementById('page3').classList.add('active');
+      showPage('page3');
     } else {
       r.text().then(function(err) {
         btnText.textContent = 'Spustit instalaci';
