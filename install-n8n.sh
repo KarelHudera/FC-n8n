@@ -557,13 +557,13 @@ function handleSubmit() {
   var btnText = document.getElementById('btn-install-text');
   btnText.textContent = 'Spouštím instalaci...';
   btn.disabled = true;
+  var certMode   = document.querySelector('input[name=mode]:checked') ?
+                 document.querySelector('input[name=mode]:checked').value : 'ip';
+  var customCert = (document.getElementById('custom-cert-input') || {value:''}).value.trim();
+  var customKey  = (document.getElementById('custom-key-input')  || {value:''}).value.trim();
   fetch('/submit', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    var certMode   = document.querySelector('input[name=mode]:checked') ?
-                   document.querySelector('input[name=mode]:checked').value : 'ip';
-    var customCert = (document.getElementById('custom-cert-input') || {value:''}).value.trim();
-    var customKey  = (document.getElementById('custom-key-input')  || {value:''}).value.trim();
     body: 'host='        + encodeURIComponent(selectedHost)
         + '&email='      + encodeURIComponent(selectedEmail)
         + '&update='     + encodeURIComponent(currentUpdate)
