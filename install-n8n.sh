@@ -17,14 +17,12 @@ _trap_error() {
 }
 trap '_trap_error $LINENO' ERR
 
-# Globální cleanup — ukončí setup server při jakémkoliv ukončení skriptu
+# Při přerušení nebo chybě zapiš error status aby ho prohlížeč zobrazil
 WEBSERVER_PID=""
-_cleanup() {
-  if [[ -n "$WEBSERVER_PID" ]]; then
-    kill "$WEBSERVER_PID" 2>/dev/null || true
-  fi
+_on_interrupt() {
+  echo "ERROR:Instalace byla přerušena. Zkontrolujte logy: journalctl -u n8n -n 50" > /tmp/n8n_status 2>/dev/null || true
 }
-trap '_cleanup' EXIT INT TERM
+trap '_on_interrupt' INT TERM
 
 [[ $EUID -ne 0 ]] && error "Spusť jako root: sudo bash install-n8n.sh"
 
