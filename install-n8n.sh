@@ -62,7 +62,8 @@ else
     -addext "subjectAltName=IP:$DETECTED_IP" 2>/dev/null
 
   ufw allow 443/tcp > /dev/null 2>&1 || true
-  rm -f /tmp/n8n_config
+  # Vyčisti staré statusy z předchozích běhů
+  rm -f /tmp/n8n_config /tmp/n8n_status /tmp/n8n_install_ok
 
   cat > /tmp/setup.html << 'HTML'
 <!DOCTYPE html>
