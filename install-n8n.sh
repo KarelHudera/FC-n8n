@@ -238,8 +238,8 @@ else
     <h1>Automatické aktualizace</h1>
     <p class="subtitle">Nastavte plán automatické aktualizace n8n na nejnovější stabilní verzi.</p>
     <div class="options" style="margin-bottom: 24px;">
-      <label class="option" id="opt-no-update">
-        <input type="radio" name="update" value="none" onchange="selectUpdate('none')">
+      <label class="option selected" id="opt-no-update">
+        <input type="radio" name="update" value="none" checked onchange="selectUpdate('none')">
         <span class="radio-circle"></span>
         <div>
           <div class="option-label">Bez automatických aktualizací</div>
@@ -285,11 +285,30 @@ else
           <label>Čas</label>
           <div class="select-wrap">
             <select id="weekly-hour">
+              <option value="0">00:00</option>
+              <option value="1">01:00</option>
               <option value="2">02:00</option>
               <option value="3" selected>03:00</option>
               <option value="4">04:00</option>
               <option value="5">05:00</option>
               <option value="6">06:00</option>
+              <option value="7">07:00</option>
+              <option value="8">08:00</option>
+              <option value="9">09:00</option>
+              <option value="10">10:00</option>
+              <option value="11">11:00</option>
+              <option value="12">12:00</option>
+              <option value="13">13:00</option>
+              <option value="14">14:00</option>
+              <option value="15">15:00</option>
+              <option value="16">16:00</option>
+              <option value="17">17:00</option>
+              <option value="18">18:00</option>
+              <option value="19">19:00</option>
+              <option value="20">20:00</option>
+              <option value="21">21:00</option>
+              <option value="22">22:00</option>
+              <option value="23">23:00</option>
             </select>
           </div>
         </div>
@@ -321,18 +340,37 @@ else
           <label>Čas</label>
           <div class="select-wrap">
             <select id="monthly-hour">
+              <option value="0">00:00</option>
+              <option value="1">01:00</option>
               <option value="2">02:00</option>
               <option value="3" selected>03:00</option>
               <option value="4">04:00</option>
               <option value="5">05:00</option>
               <option value="6">06:00</option>
+              <option value="7">07:00</option>
+              <option value="8">08:00</option>
+              <option value="9">09:00</option>
+              <option value="10">10:00</option>
+              <option value="11">11:00</option>
+              <option value="12">12:00</option>
+              <option value="13">13:00</option>
+              <option value="14">14:00</option>
+              <option value="15">15:00</option>
+              <option value="16">16:00</option>
+              <option value="17">17:00</option>
+              <option value="18">18:00</option>
+              <option value="19">19:00</option>
+              <option value="20">20:00</option>
+              <option value="21">21:00</option>
+              <option value="22">22:00</option>
+              <option value="23">23:00</option>
             </select>
           </div>
         </div>
       </div>
     </div>
 
-    <button id="btn-install" type="button" class="btn btn-primary" onclick="handleSubmit()" disabled>
+    <button id="btn-install" type="button" class="btn btn-primary" onclick="handleSubmit()">
       <i class="mdi mdi-check btn-icon"></i>
       <span id="btn-install-text">Spustit instalaci</span>
     </button>
@@ -354,8 +392,22 @@ else
 
 </div>
 <script>
-var selectedHost = '';
-var selectedEmail = '';
+var selectedHost = sessionStorage.getItem('n8nHost') || '';
+var selectedEmail = sessionStorage.getItem('n8nEmail') || '';
+
+// Obnova stránky po refreshi
+(function() {
+  var page = sessionStorage.getItem('n8nPage');
+  if (page === '2') {
+    document.getElementById('page1').classList.remove('active');
+    document.getElementById('page2').classList.add('active');
+  } else if (page === '3') {
+    document.getElementById('page1').classList.remove('active');
+    document.getElementById('page3').classList.add('active');
+    var url = sessionStorage.getItem('n8nHost');
+    if (url) document.getElementById('final-url').textContent = 'https://' + url;
+  }
+})();
 
 function selectMode(mode) {
   document.getElementById('opt-ip').classList.toggle('selected', mode === 'ip');
@@ -375,6 +427,9 @@ function selectUpdate(type) {
   document.getElementById('btn-install').disabled = false;
 }
 function goToPage1() {
+  sessionStorage.removeItem('n8nPage');
+  sessionStorage.removeItem('n8nHost');
+  sessionStorage.removeItem('n8nEmail');
   document.getElementById('page1').classList.add('active');
   document.getElementById('page2').classList.remove('active');
 }
@@ -388,6 +443,9 @@ function goToPage2() {
   }
   selectedHost  = mode === 'ip' ? 'SERVER_IP_PLACEHOLDER' : domain;
   selectedEmail = email;
+  sessionStorage.setItem('n8nPage', '2');
+  sessionStorage.setItem('n8nHost', selectedHost);
+  sessionStorage.setItem('n8nEmail', selectedEmail);
   document.getElementById('page1').classList.remove('active');
   document.getElementById('page2').classList.add('active');
 }
@@ -415,6 +473,7 @@ function handleSubmit() {
   }).then(function(r) {
     if (r.ok) {
       document.getElementById('final-url').textContent = 'https://' + selectedHost;
+      sessionStorage.setItem('n8nPage', '3');
       document.getElementById('page2').classList.remove('active');
       document.getElementById('page3').classList.add('active');
     } else {
