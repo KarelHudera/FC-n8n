@@ -16,16 +16,11 @@ DB_NAME="n8n"
 DB_USER="n8n"
 
 SETUP_USER="${SETUP_USER:-n8n}"
-# SETUP_PASS_HASH je SHA-256 crypt hash z cloud-init (formát $5$salt$hash)
-# Nikdy nepřijímáme plaintext heslo
 SETUP_PASS_HASH="${SETUP_PASS_HASH:-}"
 
 [[ -z "$SETUP_PASS_HASH" ]] && error "SETUP_PASS_HASH není nastaven. Předej SHA-256 crypt hash hesla."
-
-# Ověření že hash má správný formát ($5$ = SHA-256 crypt)
 [[ "$SETUP_PASS_HASH" != \$5\$* ]] && error "SETUP_PASS_HASH musí být SHA-256 crypt hash (začíná \$5\$)."
 
-# Perzistentní kontrola šifrovacího klíče pro zamezení chyb mismatching keys
 EXISTING_KEY=""
 if [[ -f /etc/n8n/n8n.env ]]; then
   EXISTING_KEY=$(grep 'N8N_ENCRYPTION_KEY=' /etc/n8n/n8n.env | cut -d'=' -f2)
@@ -41,8 +36,6 @@ else
   apt-get update -q
   apt-get install -y -q python3 ufw openssl
 
-  # Self-signed certifikát pro setup formulář — platnost 7 dní (stačí na dobu instalace,
-  # nikdy se nepoužívá produkčně, po dokončení se maže)
   openssl req -x509 -nodes -days 7 -newkey rsa:2048 \
     -keyout /tmp/setup.key \
     -out /tmp/setup.crt \
@@ -78,205 +71,118 @@ else
     --border-radius-sm: 6px;
     --box-shadow-card: 0px 0px 1px rgba(0,0,0,.04), 0px 2px 24px rgba(0,0,0,.08);
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
     font-family: var(--font-family-base);
     background-color: var(--body-bg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 20px;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 20px;
     color: var(--text-main);
     -webkit-font-smoothing: antialiased;
   }
-
   .card {
     background: var(--card-bg);
     border-radius: var(--border-radius);
-    padding: 36px;
-    max-width: 500px;
-    width: 100%;
+    padding: 36px; max-width: 500px; width: 100%;
     border: 1px solid var(--border-color-light);
     box-shadow: var(--box-shadow-card);
   }
-
-  h1 {
-    font-size: 24px;
-    color: var(--text-heading);
-    margin-bottom: 6px;
-    font-weight: 500;
-    letter-spacing: -0.3px;
-  }
-
-  .subtitle {
-    color: var(--text-muted);
-    font-size: 13.5px;
-    margin-bottom: 28px;
-    font-weight: 400;
-  }
-
+  h1 { font-size: 24px; color: var(--text-heading); margin-bottom: 6px; font-weight: 500; letter-spacing: -0.3px; }
+  .subtitle { color: var(--text-muted); font-size: 13.5px; margin-bottom: 28px; font-weight: 400; }
   .ip-box {
-    background: var(--brand-primary-faded);
-    border-radius: var(--border-radius-sm);
-    padding: 14px 18px;
-    margin-bottom: 24px;
-    font-size: 14px;
-    color: #2368AD;
-    font-weight: 400;
+    background: var(--brand-primary-faded); border-radius: var(--border-radius-sm);
+    padding: 14px 18px; margin-bottom: 24px; font-size: 14px; color: #2368AD;
   }
   .ip-box strong { font-weight: 600; font-size: 15px; }
-
-  label {
-    display: block;
-    font-size: 14px;
-    font-weight: 400;
-    color: var(--text-heading);
-    margin-bottom: 8px;
-  }
-
-  .options {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-bottom: 24px;
-  }
-
-  /* --- karta s volbou (option) --- */
+  label { display: block; font-size: 14px; font-weight: 400; color: var(--text-heading); margin-bottom: 8px; }
+  .options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
   .option {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 14px 16px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-sm);
-    cursor: pointer;
-    transition: border-color .15s, background-color .15s, box-shadow .15s;
-    background-color: #ffffff;
-    position: relative;
+    display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
+    border: 1px solid var(--border-color); border-radius: var(--border-radius-sm);
+    cursor: pointer; transition: border-color .15s, background-color .15s;
+    background-color: #ffffff; position: relative;
   }
   .option:hover { border-color: #C5C9D1; }
-
-  /* skryjeme nativní radio, vykreslíme vlastní kroužek (styl podobný icheck) */
-  .option input[type=radio] {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
+  .option input[type=radio] { position: absolute; opacity: 0; width: 0; height: 0; }
   .radio-circle {
-    flex: 0 0 18px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: 2px solid var(--border-color);
-    margin-top: 2px;
-    position: relative;
-    transition: border-color .15s, background-color .15s;
-    background: #fff;
+    flex: 0 0 18px; width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--border-color); margin-top: 2px; position: relative;
+    transition: border-color .15s, background-color .15s; background: #fff;
   }
   .option:hover .radio-circle { border-color: var(--brand-primary); }
-  .option.selected .radio-circle {
-    border-color: var(--brand-primary);
-    background: var(--brand-primary);
-  }
+  .option.selected .radio-circle { border-color: var(--brand-primary); background: var(--brand-primary); }
   .option.selected .radio-circle::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #fff;
+    content: ""; position: absolute; top: 50%; left: 50%;
+    width: 6px; height: 6px; border-radius: 50%; background: #fff;
     transform: translate(-50%, -50%);
   }
-
   .option-label { font-size: 14px; color: var(--text-heading); font-weight: 500; }
   .option-desc { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; line-height: 17px; }
-
   #domain-section { display: none; margin-bottom: 24px; }
   #domain-section.visible { display: block; }
-
-  /* --- inputy ve stylu webu --- */
-  input[type=text] {
-    width: 100%;
-    height: 44px;
-    padding: 0 14px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-sm);
-    font-size: 14px;
-    color: var(--text-main);
-    outline: none;
-    transition: border-color .15s, box-shadow .15s;
-    font-family: var(--font-family-base);
-    background-color: #ffffff;
+  #update-schedule { display: none; margin-bottom: 24px; }
+  #update-schedule.visible { display: block; }
+  .form-row { margin-bottom: 16px; }
+  .form-row-inline { display: flex; gap: 12px; margin-bottom: 16px; }
+  .form-row-inline > div { flex: 1; }
+  input[type=text], select {
+    width: 100%; height: 44px; padding: 0 14px;
+    border: 1px solid var(--border-color); border-radius: var(--border-radius-sm);
+    font-size: 14px; color: var(--text-main); outline: none;
+    transition: border-color .15s; font-family: var(--font-family-base);
+    background-color: #ffffff; appearance: none;
   }
-  input[type=text]:hover { border-color: #C5C9D1; }
-  input[type=text]:focus {
-    border-color: var(--brand-primary);
-  }
+  input[type=text]:hover, select:hover { border-color: #C5C9D1; }
+  input[type=text]:focus, select:focus { border-color: var(--brand-primary); }
   input[type=text]::placeholder { color: #b3b5b9; }
-
+  .select-wrap { position: relative; }
+  .select-wrap::after {
+    content: ""; position: absolute; right: 14px; top: 50%;
+    transform: translateY(-50%); width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid var(--text-muted); pointer-events: none;
+  }
   .dns-info {
-    background: #f0f7ff;
-    border: 1px solid #bcd7ff;
-    border-radius: var(--border-radius-sm);
-    padding: 14px 16px;
-    margin-top: 14px;
-    font-size: 13px;
-    color: #1a4f8a;
-    line-height: 18px;
+    background: #f0f7ff; border: 1px solid #bcd7ff;
+    border-radius: var(--border-radius-sm); padding: 14px 16px;
+    margin-top: 14px; font-size: 13px; color: #1a4f8a; line-height: 18px;
   }
   .dns-info code { background: #dbeafe; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #1e40af; }
   .dns-table { width: 100%; margin-top: 10px; border-collapse: collapse; }
   .dns-table td { padding: 5px 4px; font-size: 13px; color: #1a4f8a; }
   .dns-table td:first-child { font-weight: 600; width: 70px; }
-
-  .lu-btn--plain.lu-btn--primary {
-    cursor: pointer;
-    box-sizing: border-box;
+  .btn {
+    cursor: pointer; font-family: var(--font-family-base); display: inline-flex;
+    align-items: center; justify-content: center; transition: background-color .15s, border-color .15s;
+    white-space: nowrap; outline: 0; font-weight: 500;
+    border-radius: var(--border-radius-sm); font-size: 14px;
+    height: 44px; padding: 0 16px; width: 100%;
+  }
+  .btn-primary { color: #fff; background-color: var(--brand-primary); border: 1px solid var(--brand-primary); }
+  .btn-primary:hover { background-color: var(--brand-primary-hover); border-color: var(--brand-primary-hover); }
+  .btn-primary:disabled { background-color: #DADDE6; border-color: #DADDE6; cursor: not-allowed; }
+  .btn-secondary { color: var(--text-main); background-color: #fff; border: 1px solid var(--border-color); margin-bottom: 10px; }
+  .btn-secondary:hover { border-color: #C5C9D1; background-color: #f9f9f9; }
+  .btn-icon { margin-right: 6px; font-size: 18px; display: inline-flex; align-items: center; }
+  .back-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 13px; color: var(--text-muted); cursor: pointer;
+    margin-bottom: 20px; background: none; border: none; padding: 0;
     font-family: var(--font-family-base);
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color .15s, border-color .15s;
-    vertical-align: top;
-    white-space: nowrap;
-    outline: 0;
-    font-weight: 500;
-    border-radius: var(--border-radius-sm);
-    font-size: 14px;
-    height: 44px;
-    padding: 0 16px;
-    color: #ffffff;
-    background-color: var(--brand-primary);
-    border: 1px solid var(--brand-primary);
-    width: 100%;
   }
-  .lu-btn--plain.lu-btn--primary:hover {
-    background-color: var(--brand-primary-hover);
-    border-color: var(--brand-primary-hover);
-  }
-  .lu-btn--plain.lu-btn--primary:disabled {
-    background-color: #DADDE6;
-    border-color: #DADDE6;
-    cursor: not-allowed;
-  }
-  .lu-btn__icon { margin-right: 6px; font-size: 18px; display: inline-flex; align-items: center; }
-  .lu-btn__text { display: inline-block; line-height: 1; }
-
+  .back-link:hover { color: var(--text-main); }
   .note { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 16px; }
   .spinner { display: block; width: 44px; height: 44px; border: 3px solid #edeff2; border-top-color: var(--brand-primary); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 24px; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .page { display: none; }
+  .page.active { display: block; }
 </style>
 </head>
 <body>
 <div class="card">
-  <div id="setup-content">
+
+  <!-- STRÁNKA 1: Volba přístupu -->
+  <div id="page1" class="page active">
     <h1>Instalace n8n</h1>
     <p class="subtitle">Nakonfigurujte přístupovou adresu vašeho n8n serveru.</p>
     <div class="ip-box">IP adresa tohoto serveru: <strong>SERVER_IP_PLACEHOLDER</strong></div>
@@ -300,7 +206,7 @@ else
       </label>
     </div>
     <div id="domain-section">
-      <div style="margin-bottom: 16px;">
+      <div class="form-row">
         <label for="domain">Vaše doména</label>
         <input type="text" id="domain" placeholder="n8n.vasestranka.cz" oninput="updateDns(this.value)">
         <div class="dns-info">
@@ -313,21 +219,144 @@ else
           </table>
         </div>
       </div>
-      <div style="margin-bottom: 4px;">
+      <div class="form-row">
         <label for="email">E-mail pro Let's Encrypt</label>
         <input type="text" id="email" placeholder="vas@email.cz">
       </div>
     </div>
-
-    <button id="btn" type="button" class="lu-btn lu-btn--plain lu-btn--primary" onclick="handleSubmit()">
-      <i class="lu-mdi mdi mdi-plus lu-btn__icon"></i>
-      <span class="lu-btn__text" id="btn-text">Pokračovat v instalaci</span>
+    <button id="btn-next" type="button" class="btn btn-primary" onclick="goToPage2()">
+      <i class="mdi mdi-arrow-right btn-icon"></i>
+      <span>Pokračovat</span>
     </button>
+  </div>
 
+  <!-- STRÁNKA 2: Automatické aktualizace -->
+  <div id="page2" class="page">
+    <button class="back-link" onclick="goToPage1()">
+      <i class="mdi mdi-arrow-left"></i> Zpět
+    </button>
+    <h1>Automatické aktualizace</h1>
+    <p class="subtitle">Nastavte plán automatické aktualizace n8n na nejnovější stabilní verzi.</p>
+    <div class="options" style="margin-bottom: 24px;">
+      <label class="option" id="opt-no-update">
+        <input type="radio" name="update" value="none" onchange="selectUpdate('none')">
+        <span class="radio-circle"></span>
+        <div>
+          <div class="option-label">Bez automatických aktualizací</div>
+          <div class="option-desc">Aktualizace provedu ručně příkazem <code style="background:#f1f3f5;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;">npm install -g n8n@latest</code></div>
+        </div>
+      </label>
+      <label class="option" id="opt-weekly">
+        <input type="radio" name="update" value="weekly" onchange="selectUpdate('weekly')">
+        <span class="radio-circle"></span>
+        <div>
+          <div class="option-label">Týdně</div>
+          <div class="option-desc">Aktualizace jednou týdně ve vybraný den a čas.</div>
+        </div>
+      </label>
+      <label class="option" id="opt-monthly">
+        <input type="radio" name="update" value="monthly" onchange="selectUpdate('monthly')">
+        <span class="radio-circle"></span>
+        <div>
+          <div class="option-label">Měsíčně</div>
+          <div class="option-desc">Aktualizace jednou měsíčně ve vybraný den a čas.</div>
+        </div>
+      </label>
+    </div>
+
+    <!-- Plán pro týdenní aktualizace -->
+    <div id="schedule-weekly" class="update-schedule" style="display:none; margin-bottom:24px;">
+      <div class="form-row-inline">
+        <div>
+          <label>Den v týdnu</label>
+          <div class="select-wrap">
+            <select id="weekly-day">
+              <option value="1">Pondělí</option>
+              <option value="2">Úterý</option>
+              <option value="3">Středa</option>
+              <option value="4">Čtvrtek</option>
+              <option value="5">Pátek</option>
+              <option value="6">Sobota</option>
+              <option value="0">Neděle</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label>Čas</label>
+          <div class="select-wrap">
+            <select id="weekly-hour">
+              <option value="2">02:00</option>
+              <option value="3" selected>03:00</option>
+              <option value="4">04:00</option>
+              <option value="5">05:00</option>
+              <option value="6">06:00</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plán pro měsíční aktualizace -->
+    <div id="schedule-monthly" class="update-schedule" style="display:none; margin-bottom:24px;">
+      <div class="form-row-inline">
+        <div>
+          <label>Den v měsíci</label>
+          <div class="select-wrap">
+            <select id="monthly-day">
+              <option value="1">1.</option>
+              <option value="2">2.</option>
+              <option value="3">3.</option>
+              <option value="4">4.</option>
+              <option value="5">5.</option>
+              <option value="7">7.</option>
+              <option value="10">10.</option>
+              <option value="14">14.</option>
+              <option value="15">15.</option>
+              <option value="20">20.</option>
+              <option value="28">28.</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label>Čas</label>
+          <div class="select-wrap">
+            <select id="monthly-hour">
+              <option value="2">02:00</option>
+              <option value="3" selected>03:00</option>
+              <option value="4">04:00</option>
+              <option value="5">05:00</option>
+              <option value="6">06:00</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button id="btn-install" type="button" class="btn btn-primary" onclick="handleSubmit()" disabled>
+      <i class="mdi mdi-check btn-icon"></i>
+      <span id="btn-install-text">Spustit instalaci</span>
+    </button>
     <p class="note">Po potvrzení bude instalace pokračovat automaticky.</p>
   </div>
+
+  <!-- STRÁNKA 3: Probíhá instalace -->
+  <div id="page3" class="page">
+    <div style="text-align:center; padding: 10px 0;">
+      <div class="spinner"></div>
+      <h1>Instalace probíhá</h1>
+      <p style="color:var(--text-muted); font-size:14px; line-height: 1.6; margin-top: 12px;">
+        Server se nyní konfiguruje. Za několik minut bude n8n dostupné na<br>
+        <strong id="final-url" style="color:var(--brand-primary); font-weight:600;"></strong>.<br><br>
+        Tuto stránku můžete bezpečně zavřít.
+      </p>
+    </div>
+  </div>
+
 </div>
 <script>
+var selectedHost = '';
+var selectedEmail = '';
+
 function selectMode(mode) {
   document.getElementById('opt-ip').classList.toggle('selected', mode === 'ip');
   document.getElementById('opt-domain').classList.toggle('selected', mode === 'domain');
@@ -336,38 +365,69 @@ function selectMode(mode) {
 function updateDns(value) {
   document.getElementById('dns-name').textContent = value || 'n8n.vasestranka.cz';
 }
-function getSuccessHTML(host) {
-  return '<div style="text-align:center; padding: 10px 0;"><div class="spinner"></div><h1>Instalace probíhá</h1><p style="color:var(--text-muted); font-size:14px; line-height: 1.6; margin-top: 12px;">Server se nyní konfiguruje. Za několik minut bude n8n dostupné na <br><strong style="color:var(--brand-primary); font-weight:600;">https://' + host + '</strong>.<br><br>Tuto stránku můžete bezpečně zavřít.</p></div>';
+function selectUpdate(type) {
+  ['no-update','weekly','monthly'].forEach(function(t) {
+    document.getElementById('opt-' + t).classList.remove('selected');
+  });
+  document.getElementById('opt-' + type).classList.add('selected');
+  document.getElementById('schedule-weekly').style.display  = type === 'weekly'  ? 'block' : 'none';
+  document.getElementById('schedule-monthly').style.display = type === 'monthly' ? 'block' : 'none';
+  document.getElementById('btn-install').disabled = false;
 }
-function handleSubmit() {
-  var mode = document.querySelector('input[name=mode]:checked').value;
+function goToPage1() {
+  document.getElementById('page1').classList.add('active');
+  document.getElementById('page2').classList.remove('active');
+}
+function goToPage2() {
+  var mode   = document.querySelector('input[name=mode]:checked').value;
   var domain = document.getElementById('domain').value.trim();
-  var email = document.getElementById('email').value.trim();
+  var email  = document.getElementById('email').value.trim();
   if (mode === 'domain') {
     if (!domain) { alert('Zadejte doménu.'); return; }
-    if (!email) { alert('Zadejte e-mail pro Let\'s Encrypt.'); return; }
+    if (!email)  { alert('Zadejte e-mail pro Let\'s Encrypt.'); return; }
   }
-  var host = mode === 'ip' ? 'SERVER_IP_PLACEHOLDER' : domain;
-  var btn = document.getElementById('btn');
-  var btnText = document.getElementById('btn-text');
-  btnText.textContent = 'Ověřuji...';
+  selectedHost  = mode === 'ip' ? 'SERVER_IP_PLACEHOLDER' : domain;
+  selectedEmail = email;
+  document.getElementById('page1').classList.remove('active');
+  document.getElementById('page2').classList.add('active');
+}
+function handleSubmit() {
+  var updateType = document.querySelector('input[name=update]:checked');
+  if (!updateType) { alert('Vyberte možnost aktualizací.'); return; }
+  var update = updateType.value;
+  var schedule = '';
+  if (update === 'weekly') {
+    schedule = document.getElementById('weekly-hour').value + ' * * ' + document.getElementById('weekly-day').value;
+  } else if (update === 'monthly') {
+    schedule = document.getElementById('monthly-hour').value + ' ' + document.getElementById('monthly-day').value + ' * *';
+  }
+  var btn = document.getElementById('btn-install');
+  var btnText = document.getElementById('btn-install-text');
+  btnText.textContent = 'Spouštím instalaci...';
   btn.disabled = true;
   fetch('/submit', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: 'host=' + encodeURIComponent(host) + '&email=' + encodeURIComponent(email)
+    body: 'host=' + encodeURIComponent(selectedHost)
+        + '&email=' + encodeURIComponent(selectedEmail)
+        + '&update=' + encodeURIComponent(update)
+        + '&schedule=' + encodeURIComponent(schedule)
   }).then(function(r) {
     if (r.ok) {
-      document.getElementById('setup-content').innerHTML = getSuccessHTML(host);
+      document.getElementById('final-url').textContent = 'https://' + selectedHost;
+      document.getElementById('page2').classList.remove('active');
+      document.getElementById('page3').classList.add('active');
     } else {
       r.text().then(function(err) {
-        btnText.textContent = 'Pokračovat v instalaci';
+        btnText.textContent = 'Spustit instalaci';
         btn.disabled = false;
         if (err.indexOf('DNS_MISMATCH') === 0) {
           var resolved = err.split(':')[1];
-          alert('Doména ' + host + ' směřuje na ' + resolved + ', ale IP tohoto serveru je SERVER_IP_PLACEHOLDER.\n\nZkontrolujte DNS záznam a zkuste znovu.');
+          alert('Doména ' + selectedHost + ' směřuje na ' + resolved + ', ale IP tohoto serveru je SERVER_IP_PLACEHOLDER.\n\nZkontrolujte DNS záznam a zkuste znovu.');
+          goToPage1();
         } else if (err === 'DNS_UNRESOLVED') {
-          alert('Doménu ' + host + ' se nepodařilo přeložit.\n\nZkontrolujte DNS záznam. Změny DNS mohou trvat až 24 hodin.');
+          alert('Doménu ' + selectedHost + ' se nepodařilo přeložit.\n\nZkontrolujte DNS záznam. Změny DNS mohou trvat až 24 hodin.');
+          goToPage1();
         }
       });
     }
@@ -380,24 +440,17 @@ HTML
 
   sed -i "s/SERVER_IP_PLACEHOLDER/$DETECTED_IP/g" /tmp/setup.html
 
-  # Python setup server — přijímá $5$ hash přes env proměnnou, nikdy plaintext.
-  # Ověření pomocí `openssl passwd -5` — funguje na Python 3.13+ bez deprecated crypt modulu.
   cat > /tmp/n8n_setup_server.py << 'PYEOF'
 import http.server, ssl, urllib.parse, os, re, socket, base64, hmac, subprocess
 
 SERVER_IP  = os.environ['SETUP_SERVER_IP']
 SETUP_USER = os.environ['SETUP_USER']
-# Hash ve formátu $5$salt$... (SHA-256 crypt z cloud-init)
-# Plaintext heslo nikdy není uloženo ani předáno — pouze tento hash
 PASS_HASH  = os.environ['SETUP_PASS_HASH']
 HTML       = open('/tmp/setup.html').read()
 
 
 def _extract_salt(hash_str: str) -> str:
-    """Extrahuje holý salt z $5$salt$hash pro předání do openssl passwd -salt."""
-    # Formát: $5$salt$hash nebo $5$rounds=N$salt$hash
     parts = hash_str.split('$')
-    # parts = ['', '5', 'salt', 'hash'] nebo ['', '5', 'rounds=N', 'salt', 'hash']
     if len(parts) == 4:
         return parts[2]
     if len(parts) == 5 and parts[2].startswith('rounds='):
@@ -406,11 +459,6 @@ def _extract_salt(hash_str: str) -> str:
 
 
 def verify_password(username: str, password: str) -> bool:
-    """
-    Ověří heslo proti SHA-256 crypt hashi pomocí `openssl passwd -5`.
-    Používá timing-safe porovnání aby zamezil timing útokům.
-    Nevyžaduje žádné Python moduly mimo stdlib.
-    """
     if not hmac.compare_digest(username, SETUP_USER):
         return False
     salt = _extract_salt(PASS_HASH)
@@ -419,15 +467,11 @@ def verify_password(username: str, password: str) -> bool:
     try:
         result = subprocess.run(
             ['openssl', 'passwd', '-5', '-salt', salt, password],
-            capture_output=True,
-            text=True,
-            timeout=5
+            capture_output=True, text=True, timeout=5
         )
         if result.returncode != 0:
             return False
-        computed = result.stdout.strip()
-        # Timing-safe porovnání — zamezí měření délky shody
-        return hmac.compare_digest(computed, PASS_HASH)
+        return hmac.compare_digest(result.stdout.strip(), PASS_HASH)
     except Exception:
         return False
 
@@ -462,20 +506,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         host = line.split('=', 1)[1].strip()
         except Exception:
             pass
-        success = (
-            '<div style="text-align:center; padding: 10px 0;">'
-            '<div class="spinner"></div>'
-            '<h1>Instalace probíhá</h1>'
-            '<p style="color:var(--text-muted); font-size:14px; line-height: 1.6; margin-top: 12px;">'
-            'Server se nyní konfiguruje. Za několik minut bude n8n dostupné na <br>'
-            '<strong style="color:var(--brand-primary); font-weight:600;">https://' + host + '</strong>.<br><br>'
-            'Tuto stránku můžete bezpečně zavřít.</p></div>'
+        # Stránka 3 (probíhá instalace) se renderuje přes JS na klientovi,
+        # ale pokud někdo refreshne stránku po odeslání, zobrazíme static verzi
+        done_html = HTML.replace(
+            "document.getElementById('page1').classList.add('active');",
+            ""
         )
         return re.sub(
-            r'<div id="setup-content">.*?</div>\s*</div>\s*<script>',
-            '<div id="setup-content">' + success + '</div></div><script>',
-            HTML, flags=re.DOTALL
-        )
+            r"id=\"page1\" class=\"page active\"",
+            'id="page1" class="page"',
+            re.sub(
+                r"id=\"page3\" class=\"page\"",
+                'id="page3" class="page active"',
+                done_html
+            )
+        ).replace('id="final-url"', 'id="final-url" style="color:var(--brand-primary);font-weight:600;"')
 
     def do_GET(self):
         if not self.check_auth():
@@ -498,8 +543,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(length).decode()
         params = urllib.parse.parse_qs(body)
-        host  = params.get('host',  [''])[0].strip()
-        email = params.get('email', [''])[0].strip()
+        host     = params.get('host',     [''])[0].strip()
+        email    = params.get('email',    [''])[0].strip()
+        update   = params.get('update',   ['none'])[0].strip()
+        schedule = params.get('schedule', [''])[0].strip()
         is_ip = bool(re.match(r'^\d+\.\d+\.\d+\.\d+$', host))
         if not is_ip:
             try:
@@ -517,7 +564,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(b'DNS_UNRESOLVED')
                 return
         with open('/tmp/n8n_config', 'w') as f:
-            f.write('N8N_HOST=' + host + '\nN8N_EMAIL=' + email + '\n')
+            f.write('N8N_HOST=' + host + '\n')
+            f.write('N8N_EMAIL=' + email + '\n')
+            f.write('N8N_UPDATE=' + update + '\n')
+            f.write('N8N_UPDATE_SCHEDULE=' + schedule + '\n')
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b'ok')
@@ -533,7 +583,6 @@ server.socket = ctx.wrap_socket(server.socket, server_side=True)
 server.serve_forever()
 PYEOF
 
-  # Spuštění Python serveru — $5$ hash předán přes env, nikdy plaintext
   SETUP_SERVER_IP="$DETECTED_IP" \
   SETUP_USER="$SETUP_USER" \
   SETUP_PASS_HASH="$SETUP_PASS_HASH" \
@@ -563,7 +612,6 @@ if [[ -z "${DB_PASS:-}" ]]; then
   DB_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)
 fi
 
-# Použij starý klíč, pokud existuje, jinak vygeneruj nový
 if [[ -n "$EXISTING_KEY" ]]; then
   N8N_ENCRYPTION_KEY="$EXISTING_KEY"
 else
@@ -606,8 +654,8 @@ info "Instalace n8n..."
 if ! id "n8n" &>/dev/null; then
   useradd --system --shell /usr/sbin/nologin --create-home --home-dir /opt/n8n n8n
 fi
-npm install -g n8n
-mkdir -p /opt/n8n/.n8n
+npm install -g n8n@latest
+mkdir -p /opt/n8n/.n8n /opt/n8n/backup
 chown -R n8n:n8n /opt/n8n
 log "n8n nainstalován."
 
@@ -662,13 +710,8 @@ StandardError=journal
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/opt/n8n/.n8n
+ReadWritePaths=/opt/n8n/.n8n /opt/n8n/backup
 ProtectHome=true
-
-# Omezení paměti — zabrání tomu, aby n8n při velké zátěži sebral RAM celému systému
-# (DB, nginx, SSH). Server je dedikovaný pro n8n, takže limit je relativně vysoký —
-# 15% RAM zůstává jako rezerva pro ostatní služby. Procenta se vztahují k celkové
-# paměti stroje, takže fungují stejně na malé i velké VPS bez ručního přepočtu.
 MemoryMax=85%
 MemoryHigh=75%
 
@@ -679,6 +722,136 @@ EOF
 systemctl daemon-reload
 systemctl enable n8n
 log "systemd service vytvořena."
+
+# ── Aktualizační skript ───────────────────────────────────────────────────────
+info "Vytváření aktualizačního skriptu..."
+cat > /usr/local/bin/n8n-update << 'UPDATEEOF'
+#!/bin/bash
+# n8n-update — bezpečná aktualizace na nejnovější stable verzi
+# Průběh: záloha DB + dat → aktualizace npm → restart → ověření → smazání zálohy
+# Při selhání: rollback ze zálohy, restart, log chyby
+
+set -euo pipefail
+
+LOG_FILE="/var/log/n8n-update.log"
+BACKUP_DIR="/opt/n8n/backup"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+DB_BACKUP="$BACKUP_DIR/db_$TIMESTAMP.sql.gz"
+DATA_BACKUP="$BACKUP_DIR/data_$TIMESTAMP.tar.gz"
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
+
+# Načti DB přihlašovací údaje z n8n.env
+DB_NAME=$(grep 'DB_POSTGRESDB_DATABASE=' /etc/n8n/n8n.env | cut -d'=' -f2)
+DB_USER=$(grep 'DB_POSTGRESDB_USER='     /etc/n8n/n8n.env | cut -d'=' -f2)
+DB_PASS=$(grep 'DB_POSTGRESDB_PASSWORD=' /etc/n8n/n8n.env | cut -d'=' -f2)
+
+cleanup_backup() {
+  rm -f "$DB_BACKUP" "$DATA_BACKUP"
+  log "Záloha smazána."
+}
+
+rollback() {
+  log "CHYBA: Spouštím rollback..."
+  systemctl stop n8n 2>/dev/null || true
+
+  # Obnova databáze
+  if [[ -f "$DB_BACKUP" ]]; then
+    log "Obnova databáze ze zálohy..."
+    PGPASSWORD="$DB_PASS" sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${DB_NAME}_restore;" 2>/dev/null || true
+    PGPASSWORD="$DB_PASS" sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME}_restore OWNER ${DB_USER};" 2>/dev/null || true
+    zcat "$DB_BACKUP" | PGPASSWORD="$DB_PASS" sudo -u postgres psql "${DB_NAME}_restore" > /dev/null 2>&1 || true
+    PGPASSWORD="$DB_PASS" sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${DB_NAME};" 2>/dev/null || true
+    PGPASSWORD="$DB_PASS" sudo -u postgres psql -c "ALTER DATABASE ${DB_NAME}_restore RENAME TO ${DB_NAME};" 2>/dev/null || true
+    log "Databáze obnovena."
+  fi
+
+  # Obnova dat
+  if [[ -f "$DATA_BACKUP" ]]; then
+    log "Obnova dat ze zálohy..."
+    rm -rf /opt/n8n/.n8n
+    tar -xzf "$DATA_BACKUP" -C /opt/n8n/ 2>/dev/null || true
+    chown -R n8n:n8n /opt/n8n/.n8n
+    log "Data obnovena."
+  fi
+
+  systemctl start n8n 2>/dev/null || true
+  log "Rollback dokončen. n8n spuštěn s předchozí verzí."
+}
+
+log "=== Spouštím aktualizaci n8n ==="
+OLD_VERSION=$(sudo -u n8n /usr/local/bin/n8n --version 2>/dev/null || echo "neznámá")
+log "Aktuální verze: $OLD_VERSION"
+
+# 1. Záloha databáze
+log "Zálohuji databázi..."
+mkdir -p "$BACKUP_DIR"
+PGPASSWORD="$DB_PASS" sudo -u postgres pg_dump "$DB_NAME" | gzip > "$DB_BACKUP"
+log "Záloha DB: $DB_BACKUP"
+
+# 2. Záloha dat (credentials, settings)
+log "Zálohuji /opt/n8n/.n8n ..."
+tar -czf "$DATA_BACKUP" -C /opt/n8n .n8n 2>/dev/null
+log "Záloha dat: $DATA_BACKUP"
+
+# 3. Aktualizace npm balíčku
+log "Aktualizuji n8n na nejnovější stable verzi..."
+if ! npm install -g n8n@latest >> "$LOG_FILE" 2>&1; then
+  log "CHYBA: npm install selhal."
+  rollback
+  exit 1
+fi
+
+NEW_VERSION=$(sudo -u n8n /usr/local/bin/n8n --version 2>/dev/null || echo "neznámá")
+log "Nová verze: $NEW_VERSION"
+
+# 4. Restart service
+log "Restartuji n8n service..."
+systemctl restart n8n
+
+# 5. Ověření že service nastartovala (čekáme max 30s)
+TRIES=0
+while ! systemctl is-active --quiet n8n; do
+  sleep 3
+  TRIES=$((TRIES + 1))
+  if [[ $TRIES -ge 10 ]]; then
+    log "CHYBA: n8n se nespustil po aktualizaci. Spouštím rollback..."
+    rollback
+    exit 1
+  fi
+done
+
+log "n8n úspěšně spuštěn po aktualizaci ($OLD_VERSION → $NEW_VERSION)."
+
+# 6. Smazání zálohy po úspěšné aktualizaci
+cleanup_backup
+log "=== Aktualizace dokončena ==="
+UPDATEEOF
+
+chmod +x /usr/local/bin/n8n-update
+log "Aktualizační skript vytvořen: /usr/local/bin/n8n-update"
+
+# ── Nastavení cronu (pokud uživatel zvolil automatické aktualizace) ───────────
+N8N_UPDATE="${N8N_UPDATE:-none}"
+N8N_UPDATE_SCHEDULE="${N8N_UPDATE_SCHEDULE:-}"
+
+if [[ "$N8N_UPDATE" != "none" && -n "$N8N_UPDATE_SCHEDULE" ]]; then
+  info "Nastavuji cron pro automatické aktualizace ($N8N_UPDATE)..."
+
+  # Formát N8N_UPDATE_SCHEDULE:
+  #   týdenní:  "HOUR * * DOW"   → cron: "0 HOUR * * DOW"
+  #   měsíční:  "HOUR DOM * *"   → cron: "0 HOUR DOM * *"
+  CRON_EXPR="0 $N8N_UPDATE_SCHEDULE"
+  CRON_LINE="$CRON_EXPR root /usr/local/bin/n8n-update >> /var/log/n8n-update.log 2>&1"
+
+  echo "$CRON_LINE" > /etc/cron.d/n8n-update
+  chmod 644 /etc/cron.d/n8n-update
+
+  log "Cron nastaven: $CRON_EXPR"
+  log "Soubor: /etc/cron.d/n8n-update"
+else
+  info "Automatické aktualizace vypnuty — cron nevytvořen."
+fi
 
 if [[ -n "${WEBSERVER_PID:-}" ]]; then
   kill $WEBSERVER_PID 2>/dev/null || true
@@ -743,7 +916,6 @@ server {
     server_name _;
     return 301 https://${N8N_HOST}\$request_uri;
 }
-
 server {
     listen 80;
     server_name ${N8N_HOST};
@@ -789,11 +961,6 @@ if [[ "$USE_DOMAIN" == true ]]; then
     --redirect
   log "HTTPS certifikát nainstalován."
 
-  # certbot si automaticky zaregistruje systemd timer pro obnovu (certbot.timer),
-  # žádná další konfigurace zde není potřeba
-
-  # HSTS pro doménovou variantu — certbot upravuje vlastní server blok, tento
-  # blok přidáváme zvlášť pro fallback IP přístup
   cat >> /etc/nginx/sites-available/n8n <<EOF
 
 server {
@@ -825,17 +992,17 @@ echo ""
 echo "Instalace dokončena."
 echo ""
 echo "  URL:         https://${N8N_HOST}"
+if [[ "$N8N_UPDATE" != "none" ]]; then
+echo "  Aktualizace: automaticky ($N8N_UPDATE) — cron: /etc/cron.d/n8n-update"
+else
+echo "  Aktualizace: ruční — spusť: n8n-update"
+fi
 echo ""
-echo "  Logy:        journalctl -u n8n -f"
-echo "  Restart:     systemctl restart n8n"
-echo "  Aktualizace: npm update -g n8n"
-echo ""
+echo "  Logy n8n:    journalctl -u n8n -f"
+echo "  Logy update: tail -f /var/log/n8n-update.log"
 echo "  Konfig:      /etc/n8n/n8n.env  (root only)"
 echo ""
-# DB heslo a encryption key záměrně nevypisujeme do logu —
-# jsou uloženy v /etc/n8n/n8n.env (chmod 600, vlastník root)
 
-# Kompletní pročištění dočasných souborů
 rm -f /tmp/n8n_config /tmp/setup.crt /tmp/setup.key /tmp/setup.html \
       /tmp/n8n_setup_server.py
 
@@ -844,6 +1011,5 @@ apt-get autoclean -y -q
 apt-get clean -q
 rm -rf /var/lib/apt/lists/*
 
-# Samo-odstranění skriptu
 SCRIPT_PATH="$(readlink -f "$0")"
 (sleep 2 && rm -f "$SCRIPT_PATH") &>/dev/null &
