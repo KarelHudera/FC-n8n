@@ -239,7 +239,7 @@ else
     <p class="subtitle">Nastavte plán automatické aktualizace n8n na nejnovější stabilní verzi.</p>
     <div class="options" style="margin-bottom: 24px;">
       <label class="option selected" id="opt-no-update">
-        <input type="radio" name="update" value="none" checked onchange="selectUpdate('none')">
+        <input type="radio" name="update" value="none" checked onclick="selectUpdate('none')">
         <span class="radio-circle"></span>
         <div>
           <div class="option-label">Bez automatických aktualizací</div>
@@ -247,7 +247,7 @@ else
         </div>
       </label>
       <label class="option" id="opt-weekly">
-        <input type="radio" name="update" value="weekly" onchange="selectUpdate('weekly')">
+        <input type="radio" name="update" value="weekly" onclick="selectUpdate('weekly')">
         <span class="radio-circle"></span>
         <div>
           <div class="option-label">Týdně</div>
@@ -255,7 +255,7 @@ else
         </div>
       </label>
       <label class="option" id="opt-monthly">
-        <input type="radio" name="update" value="monthly" onchange="selectUpdate('monthly')">
+        <input type="radio" name="update" value="monthly" onclick="selectUpdate('monthly')">
         <span class="radio-circle"></span>
         <div>
           <div class="option-label">Měsíčně</div>
@@ -401,6 +401,7 @@ var selectedEmail = sessionStorage.getItem('n8nEmail') || '';
   if (page === '2') {
     document.getElementById('page1').classList.remove('active');
     document.getElementById('page2').classList.add('active');
+    selectUpdate('none');
   } else if (page === '3') {
     document.getElementById('page1').classList.remove('active');
     document.getElementById('page3').classList.add('active');
@@ -448,6 +449,8 @@ function goToPage2() {
   sessionStorage.setItem('n8nEmail', selectedEmail);
   document.getElementById('page1').classList.remove('active');
   document.getElementById('page2').classList.add('active');
+  // Inicializace stránky 2 — zajistí správný vizuální stav radio buttonů
+  selectUpdate('none');
 }
 function handleSubmit() {
   var updateType = document.querySelector('input[name=update]:checked');
