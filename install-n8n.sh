@@ -397,9 +397,13 @@ function showPage(id) {
   document.getElementById(id).classList.add('active');
 }
 
-var statusPoller = null;
+var statusPoller    = null;
+var redirectPoller  = null;
+
 function startPolling(host) {
   if (statusPoller) return;
+
+  // Polling /status — zjistíme jestli instalace doběhla nebo selhala
   statusPoller = setInterval(function() {
     fetch('/status').then(function(r) { return r.text(); }).then(function(status) {
       if (status === 'OK') {
@@ -409,6 +413,8 @@ function startPolling(host) {
         var url = 'https://' + host;
         document.getElementById('final-url-ok').href = url;
         document.getElementById('final-url-ok').textContent = url;
+        // Instalace OK — začni zkoušet načíst n8n a přesměruj automaticky
+        startRedirectPolling(url);
       } else if (status.indexOf('ERROR:') === 0) {
         clearInterval(statusPoller);
         document.getElementById('status-pending').style.display = 'none';
@@ -416,6 +422,21 @@ function startPolling(host) {
         document.getElementById('error-msg').textContent = status.replace('ERROR:', '');
       }
     }).catch(function() { /* server může být zaneprázdněn, zkusíme znovu */ });
+  }, 3000);
+}
+
+function startRedirectPolling(url) {
+  if (redirectPoller) return;
+  // Každé 3s zkusíme načíst n8n přes no-cors (jiná doména/port)
+  // fetch s no-cors vždy vrátí "opaque" response — ale pokud selže, vyhodí chybu
+  // Takže úspěch = n8n odpovídá, chyba = ještě neběží
+  redirectPoller = setInterval(function() {
+    fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store' })
+      .then(function() {
+        clearInterval(redirectPoller);
+        window.location.href = url;
+      })
+      .catch(function() { /* n8n ještě neběží, zkusíme znovu */ });
   }, 3000);
 }
 
