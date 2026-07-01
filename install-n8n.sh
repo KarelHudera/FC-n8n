@@ -128,6 +128,7 @@ else
     flex: 0 0 18px; width: 18px; height: 18px; border-radius: 50%;
     border: 2px solid var(--border-color); margin-top: 2px; position: relative;
     transition: border-color .15s, background-color .15s; background: #fff;
+    pointer-events: none;
   }
   .option:hover .radio-circle { border-color: var(--brand-primary); }
   .option.selected .radio-circle { border-color: var(--brand-primary); background: var(--brand-primary); }
