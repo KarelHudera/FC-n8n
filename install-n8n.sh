@@ -645,6 +645,13 @@ server.socket = ctx.wrap_socket(server.socket, server_side=True)
 server.serve_forever()
 PYEOF
 
+  # Uvolni port 443 pokud ho drží starý process z předchozího běhu
+  OLD_PID=$(ss -tlnp 2>/dev/null | grep ':443 ' | grep -oP 'pid=\K[0-9]+' | head -1)
+  if [[ -n "$OLD_PID" ]]; then
+    kill "$OLD_PID" 2>/dev/null || true
+    sleep 1
+  fi
+
   SETUP_SERVER_IP="$DETECTED_IP" \
   SETUP_USER="$SETUP_USER" \
   SETUP_PASS_HASH="$SETUP_PASS_HASH" \
