@@ -552,10 +552,11 @@ function handleSubmit() {
     selectUpdate('none');
   } else if (page === '3') {
     var url = sessionStorage.getItem('n8nHost');
-    // Ověř že setup server ještě běží — pokud ne, resetuj na stránku 1
+    // Zobraz stránku 3 okamžitě — fetch výsledek pak upraví obsah
+    showPage('page3');
+    if (url) document.getElementById('final-url').textContent = 'https://' + url;
+    // Ověř stav instalace
     fetch('/status').then(function(r) { return r.text(); }).then(function(status) {
-      showPage('page3');
-      if (url) document.getElementById('final-url').textContent = 'https://' + url;
       if (status === 'OK') {
         // Instalace už doběhla — rovnou zobraz výsledek
         document.getElementById('status-pending').style.display = 'none';
@@ -574,8 +575,6 @@ function handleSubmit() {
       }
     }).catch(function() {
       // Server neodpovídá — instalace skončila nebo byla přerušena
-      showPage('page3');
-      if (url) document.getElementById('final-url').textContent = 'https://' + url;
       document.getElementById('status-pending').style.display = 'none';
       document.getElementById('status-error').style.display = 'block';
       document.getElementById('error-msg').textContent = 'Instalační server přestal odpovídat. Instalace pravděpodobně selhala nebo byla přerušena. Zkontrolujte logy: journalctl -u n8n -n 50';
