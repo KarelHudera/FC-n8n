@@ -402,6 +402,8 @@ var redirectPoller  = null;
 
 function startPolling(host) {
   if (statusPoller) return;
+  var failCount = 0;
+  var MAX_FAILS = 10;
 
   // Polling /status — zjistíme jestli instalace doběhla nebo selhala
   statusPoller = setInterval(function() {
@@ -425,7 +427,16 @@ function startPolling(host) {
         document.getElementById('status-error').style.display = 'block';
         document.getElementById('error-msg').textContent = status.replace('ERROR:', '');
       }
-    }).catch(function() { /* server může být zaneprázdněn, zkusíme znovu */ });
+    }).catch(function() {
+      failCount++;
+      if (failCount >= MAX_FAILS) {
+        clearInterval(statusPoller);
+        document.getElementById('status-pending').style.display = 'none';
+        document.getElementById('status-error').style.display = 'block';
+        document.getElementById('error-msg').textContent = 'Instalační server přestal odpovídat. Instalace pravděpodobně selhala nebo byla přerušena. Zkontrolujte logy: journalctl -u n8n -n 50';
+        sessionStorage.removeItem('n8nPage');
+      }
+    });
   }, 3000);
 }
 
