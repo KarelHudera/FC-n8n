@@ -713,18 +713,84 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b'DNS_UNRESOLVED')
                 return
+        cert_mode   = params.get('cert_mode',   ['ip'])[0].strip()
+        custom_cert = params.get('custom_cert', [''])[0].strip()
+        custom_key  = params.get('custom_key',  [''])[0].strip()
+
+        # Validace vlastního certifikátu
+        if cert_mode == 'custom-cert' and custom_cert and custom_key:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.crt', delete=False) as cf:
+                cf.write(custom_cert)
+                cert_path = cf.name
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.key', delete=False) as kf:
+                kf.write(custom_key)
+                key_path = kf.name
+            try:
+                r_cert = subprocess.run(['openssl', 'x509', '-noout', '-modulus', '-in', cert_path],
+                    capture_output=True, text=True, timeout=5)
+                r_key = subprocess.run(['openssl', 'pkey', '-noout', '-modulus', '-in', key_path],
+                    capture_output=True, text=True, timeout=5)
+                if r_cert.returncode != 0:
+                    self.send_response(400); self.send_header('Content-Type', 'text/plain'); self.end_headers()
+                    self.wfile.write(b'CERT_INVALID'); return
+                if r_key.returncode != 0:
+                    self.send_response(400); self.send_header('Content-Type', 'text/plain'); self.end_headers()
+                    self.wfile.write(b'KEY_INVALID'); return
+                if r_cert.stdout.strip() != r_key.stdout.strip():
+                    self.send_response(400); self.send_header('Content-Type', 'text/plain'); self.end_headers()
+                    self.wfile.write(b'CERT_KEY_MISMATCH'); return
+                r_exp = subprocess.run(['openssl', 'x509', '-noout', '-checkend', '0', '-in', cert_path],
+                    capture_output=True, text=True, timeout=5)
+                if r_exp.returncode != 0:
+                    self.send_response(400); self.send_header('Content-Type', 'text/plain'); self.end_headers()
+                    self.wfile.write(b'CERT_EXPIRED'); return
+                with open('/tmp/n8n_custom_cert.pem', 'w') as f:
+                    f.write(custom_cert)
+                with open('/tmp/n8n_custom_key.pem', 'w') as f:
+                    f.write(custom_key)
+            finally:
+                try: os.unlink(cert_path)
+                except: pass
+                try: os.unlink(key_path)
+                except: pass
+
         with open('/tmp/n8n_config', 'w') as f:
             f.write('N8N_HOST="'            + host        + '"\n')
             f.write('N8N_EMAIL="'           + email       + '"\n')
             f.write('N8N_UPDATE="'          + update      + '"\n')
             f.write('N8N_UPDATE_SCHEDULE="' + schedule    + '"\n')
             f.write('N8N_DB_PASSWORD="'     + db_password + '"\n')
+            f.write('N8N_CERT_MODE="'       + cert_mode   + '"\n')
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b'ok')
 
     def log_message(self, *args):
         pass
+
+import threading, os, time
+
+PARENT_PID = int(os.environ.get('INSTALL_PID', '0'))
+
+def watch_parent():
+    """Sleduj bash skript — pokud zemře bez OK statusu, zapiš chybu."""
+    while True:
+        time.sleep(3)
+        if PARENT_PID <= 0:
+            break
+        # Zkontroluj jestli bash proces stále běží
+        try:
+            os.kill(PARENT_PID, 0)  # signal 0 = jen zkontroluj existenci
+        except OSError:
+            # Proces zemřel — pokud není OK status, zapiš chybu
+            if not os.path.exists('/tmp/n8n_status'):
+                with open('/tmp/n8n_status', 'w') as f:
+                    f.write('ERROR:Instalace byla přerušena nebo selhala. Zkontrolujte logy: journalctl -u n8n -n 50')
+            break
+
+if PARENT_PID > 0:
+    t = threading.Thread(target=watch_parent, daemon=True)
+    t.start()
 
 server = http.server.HTTPServer(('0.0.0.0', 443), Handler)
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -743,6 +809,7 @@ PYEOF
   SETUP_SERVER_IP="$DETECTED_IP" \
   SETUP_USER="$SETUP_USER" \
   SETUP_PASS_HASH="$SETUP_PASS_HASH" \
+  INSTALL_PID="$$" \
   python3 /tmp/n8n_setup_server.py &
   WEBSERVER_PID=$!
 
@@ -759,6 +826,7 @@ PYEOF
   N8N_UPDATE="none"
   N8N_UPDATE_SCHEDULE=""
   N8N_DB_PASSWORD=""
+  N8N_CERT_MODE="domain"
   while IFS= read -r line; do
     [[ -z "$line" || "$line" == \#* ]] && continue
     key="${line%%=*}"
@@ -770,6 +838,7 @@ PYEOF
       N8N_UPDATE)          N8N_UPDATE="$value" ;;
       N8N_UPDATE_SCHEDULE) N8N_UPDATE_SCHEDULE="$value" ;;
       N8N_DB_PASSWORD)     N8N_DB_PASSWORD="$value" ;;
+      N8N_CERT_MODE)       N8N_CERT_MODE="$value" ;;
     esac
   done < /tmp/n8n_config
   rm -f /tmp/n8n_setup_server.py /tmp/setup.html /tmp/setup.crt /tmp/setup.key
@@ -777,8 +846,13 @@ fi
 
 if [[ "$N8N_HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   USE_DOMAIN=false
+  USE_CUSTOM_CERT=false
+elif [[ "${N8N_CERT_MODE:-domain}" == "custom-cert" ]]; then
+  USE_DOMAIN=false
+  USE_CUSTOM_CERT=true
 else
   USE_DOMAIN=true
+  USE_CUSTOM_CERT=false
   LETSENCRYPT_EMAIL="${N8N_EMAIL:-}"
   [[ -z "$LETSENCRYPT_EMAIL" ]] && error "E-mail pro Let's Encrypt chybí."
 fi
@@ -1014,12 +1088,22 @@ fi
 
 info "Konfigurace Nginx..."
 
-if [[ "$USE_DOMAIN" == false ]]; then
+if [[ "$USE_DOMAIN" == false && "$USE_CUSTOM_CERT" == false ]]; then
   openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
     -keyout /etc/ssl/private/n8n-selfsigned.key \
     -out /etc/ssl/certs/n8n-selfsigned.crt \
     -subj "/CN=${N8N_HOST}/O=n8n/C=CZ" \
     -addext "subjectAltName=IP:${N8N_HOST}" 2>/dev/null
+fi
+
+if [[ "$USE_CUSTOM_CERT" == true ]]; then
+  mkdir -p "/etc/letsencrypt/live/${N8N_HOST}"
+  cp /tmp/n8n_custom_cert.pem "/etc/letsencrypt/live/${N8N_HOST}/fullchain.pem"
+  cp /tmp/n8n_custom_key.pem  "/etc/letsencrypt/live/${N8N_HOST}/privkey.pem"
+  chmod 600 "/etc/letsencrypt/live/${N8N_HOST}/privkey.pem"
+  chmod 644 "/etc/letsencrypt/live/${N8N_HOST}/fullchain.pem"
+  rm -f /tmp/n8n_custom_cert.pem /tmp/n8n_custom_key.pem
+  log "Vlastní certifikát nainstalován."
 fi
 
 cat > /etc/nginx/sites-available/n8n << 'NGINXEOF'
@@ -1029,7 +1113,7 @@ map $http_upgrade $connection_upgrade {
 }
 NGINXEOF
 
-if [[ "$USE_DOMAIN" == false ]]; then
+if [[ "$USE_DOMAIN" == false && "$USE_CUSTOM_CERT" == false ]]; then
 cat >> /etc/nginx/sites-available/n8n <<EOF
 server {
     listen 80;
@@ -1041,6 +1125,40 @@ server {
     server_name ${N8N_HOST};
     ssl_certificate /etc/ssl/certs/n8n-selfsigned.crt;
     ssl_certificate_key /etc/ssl/private/n8n-selfsigned.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    location / {
+        proxy_pass http://127.0.0.1:5678;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300s;
+        chunked_transfer_encoding off;
+        proxy_buffering off;
+        proxy_cache off;
+    }
+}
+EOF
+elif [[ "$USE_CUSTOM_CERT" == true ]]; then
+cat >> /etc/nginx/sites-available/n8n <<EOF
+server {
+    listen 80;
+    server_name ${N8N_HOST};
+    return 301 https://\$host\$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name ${N8N_HOST};
+    ssl_certificate /etc/letsencrypt/live/${N8N_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${N8N_HOST}/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
     add_header X-Content-Type-Options "nosniff" always;
@@ -1107,7 +1225,9 @@ ufw allow 443/tcp
 ufw --force enable
 log "Firewall aktivován."
 
-if [[ "$USE_DOMAIN" == true ]]; then
+if [[ "$USE_CUSTOM_CERT" == true ]]; then
+  log "Vlastní certifikát je nainstalován — přeskakuji Let's Encrypt."
+elif [[ "$USE_DOMAIN" == true ]]; then
   info "Získávám SSL certifikát..."
   certbot --nginx --non-interactive --agree-tos \
     --email "$LETSENCRYPT_EMAIL" \
@@ -1134,10 +1254,12 @@ sleep 4
 
 if systemctl is-active --quiet n8n; then
   log "n8n běží."
+  echo "OK" > /tmp/n8n_status
 else
   echo ""
   echo "n8n se nespustil. Logy:"
   journalctl -u n8n -n 20 --no-pager
+  echo "ERROR:n8n se nespustil. Zkontrolujte logy příkazem: journalctl -u n8n -n 50" > /tmp/n8n_status
   exit 1
 fi
 
