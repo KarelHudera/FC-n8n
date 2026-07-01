@@ -215,7 +215,7 @@ else
             <tr><td>Typ</td><td><code>A</code></td></tr>
             <tr><td>Název</td><td><code id="dns-name">n8n.vasestranka.cz</code></td></tr>
             <tr><td>Hodnota</td><td><code>SERVER_IP_PLACEHOLDER</code></td></tr>
-            <tr><td>TTL</td><td><code>300</code></td></tr>
+            <tr><td>TTL</td><td><code>3600</code></td></tr>
           </table>
         </div>
       </div>
