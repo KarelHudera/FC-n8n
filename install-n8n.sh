@@ -345,7 +345,7 @@ else
     </div>
 
     <!-- Volitelné DB heslo -->
-    <div class="form-row" style="margin-bottom:24px;">
+    <div class="form-row" style="margin-bottom:28px;">
       <label for="db-password">Heslo k databázi <span style="color:var(--text-muted);font-weight:400;">(volitelné)</span></label>
       <input type="password" id="db-password" placeholder="Nechte prázdné pro automatické generování">
     </div>
