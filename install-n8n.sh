@@ -413,8 +413,12 @@ function startPolling(host) {
         var url = 'https://' + host;
         document.getElementById('final-url-ok').href = url;
         document.getElementById('final-url-ok').textContent = url;
-        // Instalace OK — začni zkoušet načíst n8n a přesměruj automaticky
-        startRedirectPolling(url);
+        // Automatický redirect jen pro doménový režim (IP má self-signed cert
+        // který prohlížeč blokuje při fetch, takže redirect necháme na uživateli)
+        var isIp = /^\d+\.\d+\.\d+\.\d+$/.test(host);
+        if (!isIp) {
+          startRedirectPolling(url);
+        }
       } else if (status.indexOf('ERROR:') === 0) {
         clearInterval(statusPoller);
         document.getElementById('status-pending').style.display = 'none';
