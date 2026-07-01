@@ -8,7 +8,14 @@ NC='\033[0m'
 
 log()   { echo -e "${GREEN}[OK]${NC} $1"; }
 info()  { echo -e "${BLUE}[..]${NC} $1"; }
-error() { echo -e "${RED}[!!]${NC} $1"; exit 1; }
+error() { echo -e "${RED}[!!]${NC} $1"; echo "ERROR:$1" > /tmp/n8n_status 2>/dev/null || true; exit 1; }
+
+# Trap pro neočekávané chyby (set -e)
+_trap_error() {
+  local line="$1"
+  echo "ERROR:Instalace selhala na řádku $line. Zkontrolujte logy serveru." > /tmp/n8n_status 2>/dev/null || true
+}
+trap '_trap_error $LINENO' ERR
 
 [[ $EUID -ne 0 ]] && error "Spusť jako root: sudo bash install-n8n.sh"
 
@@ -353,7 +360,7 @@ else
 
   <!-- STRÁNKA 3: Probíhá instalace -->
   <div id="page3" class="page">
-    <div style="text-align:center; padding: 10px 0;">
+    <div id="status-pending" style="text-align:center; padding: 10px 0;">
       <div class="spinner"></div>
       <h1>Instalace probíhá</h1>
       <p style="color:var(--text-muted); font-size:14px; line-height: 1.6; margin-top: 12px;">
@@ -361,6 +368,20 @@ else
         <strong id="final-url" style="color:var(--brand-primary); font-weight:600;"></strong>.<br><br>
         Tuto stránku můžete bezpečně zavřít.
       </p>
+    </div>
+    <div id="status-ok" style="display:none; text-align:center; padding: 10px 0;">
+      <div style="font-size:48px; margin-bottom:16px;">✓</div>
+      <h1 style="color:#16a34a;">Instalace dokončena</h1>
+      <p style="font-size:14px; line-height: 1.6; margin-top: 12px; color:var(--text-muted);">
+        n8n je připraveno na<br>
+        <a id="final-url-ok" href="#" style="color:var(--brand-primary); font-weight:600;" target="_blank"></a>
+      </p>
+    </div>
+    <div id="status-error" style="display:none; padding: 10px 0;">
+      <div style="font-size:48px; margin-bottom:16px; text-align:center;">✗</div>
+      <h1 style="color:#dc2626; text-align:center;">Instalace selhala</h1>
+      <div id="error-msg" style="margin-top:16px; padding:14px 16px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; font-size:13px; color:#991b1b; line-height:1.6;"></div>
+      <p style="font-size:12px; color:var(--text-muted); margin-top:12px;">Podrobnosti: <span style="font-family:monospace;font-size:11px;">journalctl -u n8n -n 50</span></p>
     </div>
   </div>
 
@@ -375,6 +396,28 @@ function showPage(id) {
     document.getElementById(p).classList.remove('active');
   });
   document.getElementById(id).classList.add('active');
+}
+
+var statusPoller = null;
+function startPolling(host) {
+  if (statusPoller) return;
+  statusPoller = setInterval(function() {
+    fetch('/status').then(function(r) { return r.text(); }).then(function(status) {
+      if (status === 'OK') {
+        clearInterval(statusPoller);
+        document.getElementById('status-pending').style.display = 'none';
+        document.getElementById('status-ok').style.display = 'block';
+        var url = 'https://' + host;
+        document.getElementById('final-url-ok').href = url;
+        document.getElementById('final-url-ok').textContent = url;
+      } else if (status.indexOf('ERROR:') === 0) {
+        clearInterval(statusPoller);
+        document.getElementById('status-pending').style.display = 'none';
+        document.getElementById('status-error').style.display = 'block';
+        document.getElementById('error-msg').textContent = status.replace('ERROR:', '');
+      }
+    }).catch(function() { /* server může být zaneprázdněn, zkusíme znovu */ });
+  }, 3000);
 }
 
 function selectMode(mode) {
@@ -448,6 +491,7 @@ function handleSubmit() {
       document.getElementById('final-url').textContent = 'https://' + selectedHost;
       sessionStorage.setItem('n8nPage', '3');
       showPage('page3');
+      startPolling(selectedHost);
     } else {
       r.text().then(function(err) {
         btnText.textContent = 'Spustit instalaci';
@@ -474,7 +518,10 @@ function handleSubmit() {
   } else if (page === '3') {
     showPage('page3');
     var url = sessionStorage.getItem('n8nHost');
-    if (url) document.getElementById('final-url').textContent = 'https://' + url;
+    if (url) {
+      document.getElementById('final-url').textContent = 'https://' + url;
+      startPolling(url);
+    }
   }
 })();
 </script>
@@ -539,6 +586,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         if not self.check_auth():
             self.send_auth_request()
+            return
+        # Endpoint pro polling stavu instalace
+        if self.path == '/status':
+            if os.path.exists('/tmp/n8n_status'):
+                with open('/tmp/n8n_status') as f:
+                    status = f.read().strip()
+            else:
+                status = 'PENDING'
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(status.encode('utf-8'))
             return
         page = HTML
         if os.path.exists('/tmp/n8n_config'):
