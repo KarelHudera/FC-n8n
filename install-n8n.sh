@@ -14,8 +14,10 @@ error() { echo -e "${RED}[!!]${NC} $1"; echo "ERROR:$1" > /tmp/n8n_status 2>/dev
 _trap_error() {
   local line="$1"
   local code="${2:-1}"
-  # Exit code 1 z npm je jen warning — nereportuj jako chybu
+  # Ignoruj exit code 1 (npm warnings, grep bez výsledku atd.)
   [[ "$code" == "1" ]] && return 0
+  # Ignoruj pokud instalace už úspěšně doběhla
+  [[ -f /tmp/n8n_install_ok ]] && return 0
   echo "ERROR:Instalace selhala na řádku $line (kód $code). Zkontrolujte logy serveru." > /tmp/n8n_status 2>/dev/null || true
 }
 trap '_trap_error $LINENO $?' ERR
@@ -1257,6 +1259,7 @@ sleep 4
 
 if systemctl is-active --quiet n8n; then
   log "n8n běží."
+  touch /tmp/n8n_install_ok
   echo "OK" > /tmp/n8n_status
 else
   echo ""
@@ -1282,7 +1285,7 @@ echo "  Konfig:      /etc/n8n/n8n.env  (root only)"
 echo ""
 
 rm -f /tmp/n8n_config /tmp/setup.crt /tmp/setup.key /tmp/setup.html \
-      /tmp/n8n_setup_server.py
+      /tmp/n8n_setup_server.py /tmp/n8n_install_ok
 
 apt-get autoremove -y -q
 apt-get autoclean -y -q
