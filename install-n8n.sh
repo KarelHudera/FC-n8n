@@ -492,10 +492,21 @@ function startRedirectPolling(url) {
   }, 3000);
 }
 
+var currentMode = 'ip';
 function selectMode(mode) {
-  document.getElementById('opt-ip').classList.toggle('selected', mode === 'ip');
-  document.getElementById('opt-domain').classList.toggle('selected', mode === 'domain');
-  document.getElementById('domain-section').classList.toggle('visible', mode === 'domain');
+  currentMode = mode;
+  ['ip','domain','custom-cert'].forEach(function(m) {
+    var opt = document.getElementById('opt-' + m);
+    var rc  = document.getElementById('rc-mode-' + m);
+    if (opt) opt.classList.toggle('selected', m === mode);
+    if (rc)  rc.classList.toggle('selected', m === mode);
+  });
+  var isDomain = mode === 'domain' || mode === 'custom-cert';
+  document.getElementById('domain-section').classList.toggle('visible', isDomain);
+  var ls = document.getElementById('letsencrypt-section');
+  var cs = document.getElementById('cert-section');
+  if (ls) ls.style.display = mode === 'domain' ? 'block' : 'none';
+  if (cs) cs.style.display = mode === 'custom-cert' ? 'block' : 'none';
 }
 
 function updateDns(value) {
@@ -522,7 +533,7 @@ function goToPage1() {
 }
 
 function goToPage2() {
-  var mode   = document.querySelector('input[name=mode]:checked').value;
+  var mode   = currentMode;
   var domain = document.getElementById('domain').value.trim();
   var email  = document.getElementById('email').value.trim();
   if (mode === 'domain') {
@@ -557,8 +568,7 @@ function handleSubmit() {
   var btnText = document.getElementById('btn-install-text');
   btnText.textContent = 'Spouštím instalaci...';
   btn.disabled = true;
-  var certMode   = document.querySelector('input[name=mode]:checked') ?
-                 document.querySelector('input[name=mode]:checked').value : 'ip';
+  var certMode   = currentMode;
   var customCert = (document.getElementById('custom-cert-input') || {value:''}).value.trim();
   var customKey  = (document.getElementById('custom-key-input')  || {value:''}).value.trim();
   fetch('/submit', {
