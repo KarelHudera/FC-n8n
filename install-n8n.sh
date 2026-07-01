@@ -238,24 +238,24 @@ else
     <h1>Automatické aktualizace</h1>
     <p class="subtitle">Nastavte plán automatické aktualizace n8n na nejnovější stabilní verzi.</p>
     <div class="options" style="margin-bottom: 24px;">
-      <label class="option selected" id="opt-no-update">
-        <input type="radio" name="update" value="none" checked onchange="selectUpdate('none')">
+      <label class="option selected" id="opt-no-update" onclick="selectUpdate('none')">
+        <input type="radio" name="update" value="none" checked>
         <span class="radio-circle"></span>
         <div>
           <div class="option-label">Bez automatických aktualizací</div>
           <div class="option-desc">Aktualizace provedu ručně příkazem <code style="background:#f1f3f5;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;">npm install -g n8n@latest</code></div>
         </div>
       </label>
-      <label class="option" id="opt-weekly">
-        <input type="radio" name="update" value="weekly" onchange="selectUpdate('weekly')">
+      <label class="option" id="opt-weekly" onclick="selectUpdate('weekly')">
+        <input type="radio" name="update" value="weekly">
         <span class="radio-circle"></span>
         <div>
           <div class="option-label">Týdně</div>
           <div class="option-desc">Aktualizace jednou týdně ve vybraný den a čas.</div>
         </div>
       </label>
-      <label class="option" id="opt-monthly">
-        <input type="radio" name="update" value="monthly" onchange="selectUpdate('monthly')">
+      <label class="option" id="opt-monthly" onclick="selectUpdate('monthly')">
+        <input type="radio" name="update" value="monthly">
         <span class="radio-circle"></span>
         <div>
           <div class="option-label">Měsíčně</div>
@@ -420,8 +420,14 @@ function updateDns(value) {
 function selectUpdate(type) {
   ['no-update','weekly','monthly'].forEach(function(t) {
     document.getElementById('opt-' + t).classList.remove('selected');
+    // Odznačíme radio button ostatních možností
+    var radio = document.querySelector('#opt-' + t + ' input[type=radio]');
+    if (radio) radio.checked = false;
   });
   document.getElementById('opt-' + type).classList.add('selected');
+  // Označíme správný radio button
+  var selected = document.querySelector('#opt-' + type + ' input[type=radio]');
+  if (selected) selected.checked = true;
   document.getElementById('schedule-weekly').style.display  = type === 'weekly'  ? 'block' : 'none';
   document.getElementById('schedule-monthly').style.display = type === 'monthly' ? 'block' : 'none';
   document.getElementById('btn-install').disabled = false;
