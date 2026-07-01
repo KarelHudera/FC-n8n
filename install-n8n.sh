@@ -630,7 +630,25 @@ PYEOF
     sleep 2
   done
 
-  source /tmp/n8n_config
+  # Čteme config manuálně — source by expandoval * v cron výrazech
+  N8N_HOST=""
+  N8N_EMAIL=""
+  N8N_UPDATE="none"
+  N8N_UPDATE_SCHEDULE=""
+  N8N_DB_PASSWORD=""
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    value=$(echo "$value" | tr -d '"')
+    case "$key" in
+      N8N_HOST)            N8N_HOST="$value" ;;
+      N8N_EMAIL)           N8N_EMAIL="$value" ;;
+      N8N_UPDATE)          N8N_UPDATE="$value" ;;
+      N8N_UPDATE_SCHEDULE) N8N_UPDATE_SCHEDULE="$value" ;;
+      N8N_DB_PASSWORD)     N8N_DB_PASSWORD="$value" ;;
+    esac
+  done < /tmp/n8n_config
   rm -f /tmp/n8n_setup_server.py /tmp/setup.html /tmp/setup.crt /tmp/setup.key
 fi
 
