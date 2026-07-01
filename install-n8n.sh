@@ -591,11 +591,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(b'DNS_UNRESOLVED')
                 return
         with open('/tmp/n8n_config', 'w') as f:
-            f.write('N8N_HOST='             + host        + '\n')
-            f.write('N8N_EMAIL='            + email       + '\n')
-            f.write('N8N_UPDATE='           + update      + '\n')
-            f.write('N8N_UPDATE_SCHEDULE='  + schedule    + '\n')
-            f.write('N8N_DB_PASSWORD='      + db_password + '\n')
+            f.write('N8N_HOST="'            + host        + '"\n')
+            f.write('N8N_EMAIL="'           + email       + '"\n')
+            f.write('N8N_UPDATE="'          + update      + '"\n')
+            f.write('N8N_UPDATE_SCHEDULE="' + schedule    + '"\n')
+            f.write('N8N_DB_PASSWORD="'     + db_password + '"\n')
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b'ok')
