@@ -573,11 +573,12 @@ function handleSubmit() {
         if (url) startPolling(url);
       }
     }).catch(function() {
-      // Server neodpovídá — instalace skončila nebo byla přerušena, reset
-      sessionStorage.removeItem('n8nPage');
-      sessionStorage.removeItem('n8nHost');
-      sessionStorage.removeItem('n8nEmail');
-      showPage('page1');
+      // Server neodpovídá — instalace skončila nebo byla přerušena
+      showPage('page3');
+      if (url) document.getElementById('final-url').textContent = 'https://' + url;
+      document.getElementById('status-pending').style.display = 'none';
+      document.getElementById('status-error').style.display = 'block';
+      document.getElementById('error-msg').textContent = 'Instalační server přestal odpovídat. Instalace pravděpodobně selhala nebo byla přerušena. Zkontrolujte logy: journalctl -u n8n -n 50';
     });
   }
 })();
