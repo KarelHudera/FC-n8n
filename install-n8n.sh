@@ -217,8 +217,16 @@ else
         <input type="radio" name="mode" value="domain" onchange="selectMode('domain')">
         <span class="radio-circle"></span>
         <div>
-          <div class="option-label">Použít vlastní doménu</div>
-          <div class="option-desc">Doporučeno. Automatický HTTPS certifikát přes Let's Encrypt.</div>
+          <div class="option-label">Vlastní doména + Let's Encrypt</div>
+          <div class="option-desc">Automatický HTTPS certifikát zdarma přes Let's Encrypt.</div>
+        </div>
+      </label>
+      <label class="option" id="opt-custom-cert">
+        <input type="radio" name="mode" value="custom-cert" onchange="selectMode('custom-cert')">
+        <span class="radio-circle"></span>
+        <div>
+          <div class="option-label">Vlastní doména + vlastní certifikát</div>
+          <div class="option-desc">Použijte komerční nebo interní SSL certifikát.</div>
         </div>
       </label>
     </div>
@@ -236,9 +244,25 @@ else
           </table>
         </div>
       </div>
-      <div class="form-row">
-        <label for="email">E-mail pro Let's Encrypt</label>
-        <input type="text" id="email" placeholder="vas@email.cz">
+      <div id="letsencrypt-section">
+        <div class="form-row">
+          <label for="email">E-mail pro Let's Encrypt</label>
+          <input type="text" id="email" placeholder="vas@email.cz">
+        </div>
+      </div>
+      <div id="cert-section" style="display:none;">
+        <div class="form-row">
+          <label for="custom-cert-input">Certifikát <span style="color:var(--text-muted);font-weight:400;">(fullchain.pem / certificate.crt)</span></label>
+          <textarea id="custom-cert-input" style="width:100%;padding:10px 14px;min-height:110px;resize:vertical;border:1px solid var(--border-color);border-radius:var(--border-radius-sm);font-size:12px;font-family:monospace;outline:none;line-height:1.5;" placeholder="-----BEGIN CERTIFICATE-----
+MIIFazCCA1OgAwIBAgI...
+-----END CERTIFICATE-----"></textarea>
+        </div>
+        <div class="form-row">
+          <label for="custom-key-input">Privátní klíč <span style="color:var(--text-muted);font-weight:400;">(privkey.pem / private.key)</span></label>
+          <textarea id="custom-key-input" style="width:100%;padding:10px 14px;min-height:110px;resize:vertical;border:1px solid var(--border-color);border-radius:var(--border-radius-sm);font-size:12px;font-family:monospace;outline:none;line-height:1.5;" placeholder="-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG...
+-----END PRIVATE KEY-----"></textarea>
+        </div>
       </div>
     </div>
     <button id="btn-next" type="button" class="btn btn-primary" onclick="goToPage2()">
@@ -505,6 +529,13 @@ function goToPage2() {
     if (!domain) { alert('Zadejte doménu.'); return; }
     if (!email)  { alert('Zadejte e-mail pro Let\'s Encrypt.'); return; }
   }
+  if (mode === 'custom-cert') {
+    var cert = document.getElementById('custom-cert-input').value.trim();
+    var key  = document.getElementById('custom-key-input').value.trim();
+    if (!domain) { alert('Zadejte doménu.'); return; }
+    if (!cert || cert.indexOf('-----BEGIN') === -1) { alert('Vložte platný certifikát ve formátu PEM.'); return; }
+    if (!key  || key.indexOf('-----BEGIN') === -1)  { alert('Vložte platný privátní klíč ve formátu PEM.'); return; }
+  }
   selectedHost  = mode === 'ip' ? 'SERVER_IP_PLACEHOLDER' : domain;
   selectedEmail = email;
   sessionStorage.setItem('n8nPage',  '2');
@@ -529,11 +560,18 @@ function handleSubmit() {
   fetch('/submit', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    var certMode   = document.querySelector('input[name=mode]:checked') ?
+                   document.querySelector('input[name=mode]:checked').value : 'ip';
+    var customCert = (document.getElementById('custom-cert-input') || {value:''}).value.trim();
+    var customKey  = (document.getElementById('custom-key-input')  || {value:''}).value.trim();
     body: 'host='        + encodeURIComponent(selectedHost)
         + '&email='      + encodeURIComponent(selectedEmail)
         + '&update='     + encodeURIComponent(currentUpdate)
         + '&schedule='   + encodeURIComponent(schedule)
         + '&db_password='+ encodeURIComponent(dbPassword)
+        + '&cert_mode='  + encodeURIComponent(certMode)
+        + '&custom_cert='+ encodeURIComponent(customCert)
+        + '&custom_key=' + encodeURIComponent(customKey)
   }).then(function(r) {
     if (r.ok) {
       document.getElementById('final-url').textContent = 'https://' + selectedHost;
@@ -550,6 +588,18 @@ function handleSubmit() {
           goToPage1();
         } else if (err === 'DNS_UNRESOLVED') {
           alert('Doménu ' + selectedHost + ' se nepodařilo přeložit.\n\nZkontrolujte DNS záznam. Změny DNS mohou trvat až 24 hodin.');
+          goToPage1();
+        } else if (err === 'CERT_INVALID') {
+          alert('Certifikát má neplatný formát.');
+          goToPage1();
+        } else if (err === 'KEY_INVALID') {
+          alert('Privátní klíč má neplatný formát.');
+          goToPage1();
+        } else if (err === 'CERT_KEY_MISMATCH') {
+          alert('Certifikát a privátní klíč k sobě nesedí.');
+          goToPage1();
+        } else if (err === 'CERT_EXPIRED') {
+          alert('Certifikát je expirovaný.');
           goToPage1();
         }
       });
