@@ -45,7 +45,7 @@ else
   ufw allow 443/tcp > /dev/null 2>&1 || true
   rm -f /tmp/n8n_config
 
-  cat > /tmp/setup.html << HTML
+  cat > /tmp/setup.html << 'HTML'
 <!DOCTYPE html>
 <html lang="cs">
 <head>
@@ -120,21 +120,19 @@ else
   .option-desc { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; line-height: 17px; }
   #domain-section { display: none; margin-bottom: 24px; }
   #domain-section.visible { display: block; }
-  #update-schedule { display: none; margin-bottom: 24px; }
-  #update-schedule.visible { display: block; }
   .form-row { margin-bottom: 16px; }
   .form-row-inline { display: flex; gap: 12px; margin-bottom: 16px; }
   .form-row-inline > div { flex: 1; }
-  input[type=text], select {
+  input[type=text], input[type=password], select {
     width: 100%; height: 44px; padding: 0 14px;
     border: 1px solid var(--border-color); border-radius: var(--border-radius-sm);
     font-size: 14px; color: var(--text-main); outline: none;
     transition: border-color .15s; font-family: var(--font-family-base);
     background-color: #ffffff; appearance: none;
   }
-  input[type=text]:hover, select:hover { border-color: #C5C9D1; }
-  input[type=text]:focus, select:focus { border-color: var(--brand-primary); }
-  input[type=text]::placeholder { color: #b3b5b9; }
+  input[type=text]:hover, input[type=password]:hover, select:hover { border-color: #C5C9D1; }
+  input[type=text]:focus, input[type=password]:focus, select:focus { border-color: var(--brand-primary); }
+  input::placeholder { color: #b3b5b9; }
   .select-wrap { position: relative; }
   .select-wrap::after {
     content: ""; position: absolute; right: 14px; top: 50%;
@@ -161,8 +159,6 @@ else
   .btn-primary { color: #fff; background-color: var(--brand-primary); border: 1px solid var(--brand-primary); }
   .btn-primary:hover { background-color: var(--brand-primary-hover); border-color: var(--brand-primary-hover); }
   .btn-primary:disabled { background-color: #DADDE6; border-color: #DADDE6; cursor: not-allowed; }
-  .btn-secondary { color: var(--text-main); background-color: #fff; border: 1px solid var(--border-color); margin-bottom: 10px; }
-  .btn-secondary:hover { border-color: #C5C9D1; background-color: #f9f9f9; }
   .btn-icon { margin-right: 6px; font-size: 18px; display: inline-flex; align-items: center; }
   .back-link {
     display: inline-flex; align-items: center; gap: 4px;
@@ -171,6 +167,7 @@ else
     font-family: var(--font-family-base);
   }
   .back-link:hover { color: var(--text-main); }
+  .hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
   .note { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 16px; }
   .spinner { display: block; width: 44px; height: 44px; border: 3px solid #edeff2; border-top-color: var(--brand-primary); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 24px; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -230,19 +227,21 @@ else
     </button>
   </div>
 
-  <!-- STRÁNKA 2: Automatické aktualizace -->
+  <!-- STRÁNKA 2: Nastavení -->
   <div id="page2" class="page">
     <button class="back-link" onclick="goToPage1()">
       <i class="mdi mdi-arrow-left"></i> Zpět
     </button>
-    <h1>Automatické aktualizace</h1>
-    <p class="subtitle">Nastavte plán automatické aktualizace n8n na nejnovější stabilní verzi.</p>
+    <h1>Nastavení</h1>
+    <p class="subtitle">Nastavte automatické aktualizace a volitelně heslo k databázi.</p>
+
+    <label style="margin-bottom:12px;">Automatické aktualizace n8n</label>
     <div class="options" style="margin-bottom: 24px;">
       <div class="option" id="opt-none" onclick="selectUpdate('none')">
         <span class="radio-circle" id="rc-none"></span>
         <div>
           <div class="option-label">Bez automatických aktualizací</div>
-          <div class="option-desc">Aktualizace provedu ručně příkazem <span style="background:#f1f3f5;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;">npm install -g n8n@latest</span></div>
+          <div class="option-desc">Aktualizace provedu ručně příkazem <span style="background:#f1f3f5;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;pointer-events:none;">n8n-update</span></div>
         </div>
       </div>
       <div class="option" id="opt-weekly" onclick="selectUpdate('weekly')">
@@ -262,7 +261,7 @@ else
     </div>
 
     <!-- Plán pro týdenní aktualizace -->
-    <div id="schedule-weekly" class="update-schedule" style="display:none; margin-bottom:24px;">
+    <div id="schedule-weekly" style="display:none; margin-bottom:24px;">
       <div class="form-row-inline">
         <div>
           <label>Den v týdnu</label>
@@ -282,30 +281,18 @@ else
           <label>Čas</label>
           <div class="select-wrap">
             <select id="weekly-hour">
-              <option value="0">00:00</option>
-              <option value="1">01:00</option>
-              <option value="2">02:00</option>
-              <option value="3" selected>03:00</option>
-              <option value="4">04:00</option>
-              <option value="5">05:00</option>
-              <option value="6">06:00</option>
-              <option value="7">07:00</option>
-              <option value="8">08:00</option>
-              <option value="9">09:00</option>
-              <option value="10">10:00</option>
-              <option value="11">11:00</option>
-              <option value="12">12:00</option>
-              <option value="13">13:00</option>
-              <option value="14">14:00</option>
-              <option value="15">15:00</option>
-              <option value="16">16:00</option>
-              <option value="17">17:00</option>
-              <option value="18">18:00</option>
-              <option value="19">19:00</option>
-              <option value="20">20:00</option>
-              <option value="21">21:00</option>
-              <option value="22">22:00</option>
-              <option value="23">23:00</option>
+              <option value="0">00:00</option><option value="1">01:00</option>
+              <option value="2">02:00</option><option value="3" selected>03:00</option>
+              <option value="4">04:00</option><option value="5">05:00</option>
+              <option value="6">06:00</option><option value="7">07:00</option>
+              <option value="8">08:00</option><option value="9">09:00</option>
+              <option value="10">10:00</option><option value="11">11:00</option>
+              <option value="12">12:00</option><option value="13">13:00</option>
+              <option value="14">14:00</option><option value="15">15:00</option>
+              <option value="16">16:00</option><option value="17">17:00</option>
+              <option value="18">18:00</option><option value="19">19:00</option>
+              <option value="20">20:00</option><option value="21">21:00</option>
+              <option value="22">22:00</option><option value="23">23:00</option>
             </select>
           </div>
         </div>
@@ -313,22 +300,17 @@ else
     </div>
 
     <!-- Plán pro měsíční aktualizace -->
-    <div id="schedule-monthly" class="update-schedule" style="display:none; margin-bottom:24px;">
+    <div id="schedule-monthly" style="display:none; margin-bottom:24px;">
       <div class="form-row-inline">
         <div>
           <label>Den v měsíci</label>
           <div class="select-wrap">
             <select id="monthly-day">
-              <option value="1">1.</option>
-              <option value="2">2.</option>
-              <option value="3">3.</option>
-              <option value="4">4.</option>
-              <option value="5">5.</option>
-              <option value="7">7.</option>
-              <option value="10">10.</option>
-              <option value="14">14.</option>
-              <option value="15">15.</option>
-              <option value="20">20.</option>
+              <option value="1">1.</option><option value="2">2.</option>
+              <option value="3">3.</option><option value="4">4.</option>
+              <option value="5">5.</option><option value="7">7.</option>
+              <option value="10">10.</option><option value="14">14.</option>
+              <option value="15">15.</option><option value="20">20.</option>
               <option value="28">28.</option>
             </select>
           </div>
@@ -337,34 +319,29 @@ else
           <label>Čas</label>
           <div class="select-wrap">
             <select id="monthly-hour">
-              <option value="0">00:00</option>
-              <option value="1">01:00</option>
-              <option value="2">02:00</option>
-              <option value="3" selected>03:00</option>
-              <option value="4">04:00</option>
-              <option value="5">05:00</option>
-              <option value="6">06:00</option>
-              <option value="7">07:00</option>
-              <option value="8">08:00</option>
-              <option value="9">09:00</option>
-              <option value="10">10:00</option>
-              <option value="11">11:00</option>
-              <option value="12">12:00</option>
-              <option value="13">13:00</option>
-              <option value="14">14:00</option>
-              <option value="15">15:00</option>
-              <option value="16">16:00</option>
-              <option value="17">17:00</option>
-              <option value="18">18:00</option>
-              <option value="19">19:00</option>
-              <option value="20">20:00</option>
-              <option value="21">21:00</option>
-              <option value="22">22:00</option>
-              <option value="23">23:00</option>
+              <option value="0">00:00</option><option value="1">01:00</option>
+              <option value="2">02:00</option><option value="3" selected>03:00</option>
+              <option value="4">04:00</option><option value="5">05:00</option>
+              <option value="6">06:00</option><option value="7">07:00</option>
+              <option value="8">08:00</option><option value="9">09:00</option>
+              <option value="10">10:00</option><option value="11">11:00</option>
+              <option value="12">12:00</option><option value="13">13:00</option>
+              <option value="14">14:00</option><option value="15">15:00</option>
+              <option value="16">16:00</option><option value="17">17:00</option>
+              <option value="18">18:00</option><option value="19">19:00</option>
+              <option value="20">20:00</option><option value="21">21:00</option>
+              <option value="22">22:00</option><option value="23">23:00</option>
             </select>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Volitelné DB heslo -->
+    <div class="form-row">
+      <label for="db-password">Heslo k databázi <span style="color:var(--text-muted);font-weight:400;">(volitelné)</span></label>
+      <input type="password" id="db-password" placeholder="Nechte prázdné pro automatické generování">
+      <p class="hint">Pokud nezadáte heslo, bude vygenerováno automaticky a uloženo v <span style="font-family:monospace;font-size:11px;">/etc/n8n/n8n.env</span>.</p>
     </div>
 
     <button id="btn-install" type="button" class="btn btn-primary" onclick="handleSubmit()">
@@ -389,22 +366,9 @@ else
 
 </div>
 <script>
-var selectedHost = sessionStorage.getItem('n8nHost') || '';
+var selectedHost  = sessionStorage.getItem('n8nHost')  || '';
 var selectedEmail = sessionStorage.getItem('n8nEmail') || '';
 var currentUpdate = 'none';
-
-// Obnova stránky po refreshi
-(function() {
-  var page = sessionStorage.getItem('n8nPage');
-  if (page === '2') {
-    showPage('page2');
-    selectUpdate('none');
-  } else if (page === '3') {
-    showPage('page3');
-    var url = sessionStorage.getItem('n8nHost');
-    if (url) document.getElementById('final-url').textContent = 'https://' + url;
-  }
-})();
 
 function showPage(id) {
   ['page1','page2','page3'].forEach(function(p) {
@@ -418,6 +382,7 @@ function selectMode(mode) {
   document.getElementById('opt-domain').classList.toggle('selected', mode === 'domain');
   document.getElementById('domain-section').classList.toggle('visible', mode === 'domain');
 }
+
 function updateDns(value) {
   document.getElementById('dns-name').textContent = value || 'n8n.vasestranka.cz';
 }
@@ -440,6 +405,7 @@ function goToPage1() {
   sessionStorage.removeItem('n8nEmail');
   showPage('page1');
 }
+
 function goToPage2() {
   var mode   = document.querySelector('input[name=mode]:checked').value;
   var domain = document.getElementById('domain').value.trim();
@@ -450,30 +416,33 @@ function goToPage2() {
   }
   selectedHost  = mode === 'ip' ? 'SERVER_IP_PLACEHOLDER' : domain;
   selectedEmail = email;
-  sessionStorage.setItem('n8nPage', '2');
-  sessionStorage.setItem('n8nHost', selectedHost);
+  sessionStorage.setItem('n8nPage',  '2');
+  sessionStorage.setItem('n8nHost',  selectedHost);
   sessionStorage.setItem('n8nEmail', selectedEmail);
   showPage('page2');
   selectUpdate('none');
 }
+
 function handleSubmit() {
-  var schedule = '';
+  var schedule   = '';
+  var dbPassword = document.getElementById('db-password').value.trim();
   if (currentUpdate === 'weekly') {
     schedule = document.getElementById('weekly-hour').value + ' * * ' + document.getElementById('weekly-day').value;
   } else if (currentUpdate === 'monthly') {
     schedule = document.getElementById('monthly-hour').value + ' ' + document.getElementById('monthly-day').value + ' * *';
   }
-  var btn = document.getElementById('btn-install');
+  var btn     = document.getElementById('btn-install');
   var btnText = document.getElementById('btn-install-text');
   btnText.textContent = 'Spouštím instalaci...';
   btn.disabled = true;
   fetch('/submit', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: 'host=' + encodeURIComponent(selectedHost)
-        + '&email=' + encodeURIComponent(selectedEmail)
-        + '&update=' + encodeURIComponent(currentUpdate)
-        + '&schedule=' + encodeURIComponent(schedule)
+    body: 'host='        + encodeURIComponent(selectedHost)
+        + '&email='      + encodeURIComponent(selectedEmail)
+        + '&update='     + encodeURIComponent(currentUpdate)
+        + '&schedule='   + encodeURIComponent(schedule)
+        + '&db_password='+ encodeURIComponent(dbPassword)
   }).then(function(r) {
     if (r.ok) {
       document.getElementById('final-url').textContent = 'https://' + selectedHost;
@@ -495,6 +464,19 @@ function handleSubmit() {
     }
   });
 }
+
+// Obnova stránky po refreshi
+(function() {
+  var page = sessionStorage.getItem('n8nPage');
+  if (page === '2') {
+    showPage('page2');
+    selectUpdate('none');
+  } else if (page === '3') {
+    showPage('page3');
+    var url = sessionStorage.getItem('n8nHost');
+    if (url) document.getElementById('final-url').textContent = 'https://' + url;
+  }
+})();
 </script>
 </body>
 </html>
@@ -510,8 +492,7 @@ SETUP_USER = os.environ['SETUP_USER']
 PASS_HASH  = os.environ['SETUP_PASS_HASH']
 HTML       = open('/tmp/setup.html').read()
 
-
-def _extract_salt(hash_str: str) -> str:
+def _extract_salt(hash_str):
     parts = hash_str.split('$')
     if len(parts) == 4:
         return parts[2]
@@ -519,8 +500,7 @@ def _extract_salt(hash_str: str) -> str:
         return parts[3]
     return ''
 
-
-def verify_password(username: str, password: str) -> bool:
+def verify_password(username, password):
     if not hmac.compare_digest(username, SETUP_USER):
         return False
     salt = _extract_salt(PASS_HASH)
@@ -537,9 +517,8 @@ def verify_password(username: str, password: str) -> bool:
     except Exception:
         return False
 
-
 class Handler(http.server.BaseHTTPRequestHandler):
-    def check_auth(self) -> bool:
+    def check_auth(self):
         auth_header = self.headers.get('Authorization', '')
         if not auth_header.startswith('Basic '):
             return False
@@ -557,38 +536,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write('Neautorizovaný přístup.'.encode('utf-8'))
 
-    def _render_page(self) -> str:
-        if not os.path.exists('/tmp/n8n_config'):
-            return HTML
-        host = 'server'
-        try:
-            with open('/tmp/n8n_config') as f:
-                for line in f:
-                    if line.startswith('N8N_HOST='):
-                        host = line.split('=', 1)[1].strip()
-        except Exception:
-            pass
-        # Stránka 3 (probíhá instalace) se renderuje přes JS na klientovi,
-        # ale pokud někdo refreshne stránku po odeslání, zobrazíme static verzi
-        done_html = HTML.replace(
-            "document.getElementById('page1').classList.add('active');",
-            ""
-        )
-        return re.sub(
-            r"id=\"page1\" class=\"page active\"",
-            'id="page1" class="page"',
-            re.sub(
-                r"id=\"page3\" class=\"page\"",
-                'id="page3" class="page active"',
-                done_html
-            )
-        ).replace('id="final-url"', 'id="final-url" style="color:var(--brand-primary);font-weight:600;"')
-
     def do_GET(self):
         if not self.check_auth():
             self.send_auth_request()
             return
-        page = self._render_page()
+        page = HTML
+        if os.path.exists('/tmp/n8n_config'):
+            host = 'server'
+            try:
+                with open('/tmp/n8n_config') as f:
+                    for line in f:
+                        if line.startswith('N8N_HOST='):
+                            host = line.split('=', 1)[1].strip()
+            except Exception:
+                pass
+            page = page.replace('id="page1" class="page active"', 'id="page1" class="page"')
+            page = page.replace('id="page3" class="page"', 'id="page3" class="page active"')
+            page = page.replace('id="final-url"', 'id="final-url" data-host="' + host + '"')
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.end_headers()
@@ -605,10 +569,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(length).decode()
         params = urllib.parse.parse_qs(body)
-        host     = params.get('host',     [''])[0].strip()
-        email    = params.get('email',    [''])[0].strip()
-        update   = params.get('update',   ['none'])[0].strip()
-        schedule = params.get('schedule', [''])[0].strip()
+        host        = params.get('host',        [''])[0].strip()
+        email       = params.get('email',       [''])[0].strip()
+        update      = params.get('update',      ['none'])[0].strip()
+        schedule    = params.get('schedule',    [''])[0].strip()
+        db_password = params.get('db_password', [''])[0].strip()
         is_ip = bool(re.match(r'^\d+\.\d+\.\d+\.\d+$', host))
         if not is_ip:
             try:
@@ -626,17 +591,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(b'DNS_UNRESOLVED')
                 return
         with open('/tmp/n8n_config', 'w') as f:
-            f.write('N8N_HOST=' + host + '\n')
-            f.write('N8N_EMAIL=' + email + '\n')
-            f.write('N8N_UPDATE=' + update + '\n')
-            f.write('N8N_UPDATE_SCHEDULE=' + schedule + '\n')
+            f.write('N8N_HOST='             + host        + '\n')
+            f.write('N8N_EMAIL='            + email       + '\n')
+            f.write('N8N_UPDATE='           + update      + '\n')
+            f.write('N8N_UPDATE_SCHEDULE='  + schedule    + '\n')
+            f.write('N8N_DB_PASSWORD='      + db_password + '\n')
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b'ok')
 
     def log_message(self, *args):
         pass
-
 
 server = http.server.HTTPServer(('0.0.0.0', 443), Handler)
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -677,7 +642,9 @@ else
   [[ -z "$LETSENCRYPT_EMAIL" ]] && error "E-mail pro Let's Encrypt chybí."
 fi
 
-if [[ -z "${DB_PASS:-}" ]]; then
+if [[ -n "${N8N_DB_PASSWORD:-}" ]]; then
+  DB_PASS="$N8N_DB_PASSWORD"
+elif [[ -z "${DB_PASS:-}" ]]; then
   DB_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)
 fi
 
@@ -759,6 +726,7 @@ chown root:root /etc/n8n/n8n.env
 log "Konfigurace uložena."
 
 info "Vytváření systemd service..."
+N8N_BIN=$(which n8n)
 cat > /etc/systemd/system/n8n.service <<EOF
 [Unit]
 Description=n8n
@@ -771,7 +739,7 @@ User=n8n
 Group=n8n
 EnvironmentFile=/etc/n8n/n8n.env
 WorkingDirectory=/opt/n8n
-ExecStart=$(which n8n)
+ExecStart=${N8N_BIN}
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
@@ -796,10 +764,6 @@ log "systemd service vytvořena."
 info "Vytváření aktualizačního skriptu..."
 cat > /usr/local/bin/n8n-update << 'UPDATEEOF'
 #!/bin/bash
-# n8n-update — bezpečná aktualizace na nejnovější stable verzi
-# Průběh: záloha DB + dat → aktualizace npm → restart → ověření → smazání zálohy
-# Při selhání: rollback ze zálohy, restart, log chyby
-
 set -euo pipefail
 
 LOG_FILE="/var/log/n8n-update.log"
@@ -810,7 +774,6 @@ DATA_BACKUP="$BACKUP_DIR/data_$TIMESTAMP.tar.gz"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
 
-# Načti DB přihlašovací údaje z n8n.env
 DB_NAME=$(grep 'DB_POSTGRESDB_DATABASE=' /etc/n8n/n8n.env | cut -d'=' -f2)
 DB_USER=$(grep 'DB_POSTGRESDB_USER='     /etc/n8n/n8n.env | cut -d'=' -f2)
 DB_PASS=$(grep 'DB_POSTGRESDB_PASSWORD=' /etc/n8n/n8n.env | cut -d'=' -f2)
@@ -823,19 +786,15 @@ cleanup_backup() {
 rollback() {
   log "CHYBA: Spouštím rollback..."
   systemctl stop n8n 2>/dev/null || true
-
-  # Obnova databáze
   if [[ -f "$DB_BACKUP" ]]; then
     log "Obnova databáze ze zálohy..."
-    PGPASSWORD="$DB_PASS" sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${DB_NAME}_restore;" 2>/dev/null || true
-    PGPASSWORD="$DB_PASS" sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME}_restore OWNER ${DB_USER};" 2>/dev/null || true
-    zcat "$DB_BACKUP" | PGPASSWORD="$DB_PASS" sudo -u postgres psql "${DB_NAME}_restore" > /dev/null 2>&1 || true
-    PGPASSWORD="$DB_PASS" sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${DB_NAME};" 2>/dev/null || true
-    PGPASSWORD="$DB_PASS" sudo -u postgres psql -c "ALTER DATABASE ${DB_NAME}_restore RENAME TO ${DB_NAME};" 2>/dev/null || true
+    sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${DB_NAME}_restore;" 2>/dev/null || true
+    sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME}_restore OWNER ${DB_USER};" 2>/dev/null || true
+    zcat "$DB_BACKUP" | sudo -u postgres psql "${DB_NAME}_restore" > /dev/null 2>&1 || true
+    sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${DB_NAME};" 2>/dev/null || true
+    sudo -u postgres psql -c "ALTER DATABASE ${DB_NAME}_restore RENAME TO ${DB_NAME};" 2>/dev/null || true
     log "Databáze obnovena."
   fi
-
-  # Obnova dat
   if [[ -f "$DATA_BACKUP" ]]; then
     log "Obnova dat ze zálohy..."
     rm -rf /opt/n8n/.n8n
@@ -843,42 +802,36 @@ rollback() {
     chown -R n8n:n8n /opt/n8n/.n8n
     log "Data obnovena."
   fi
-
   systemctl start n8n 2>/dev/null || true
-  log "Rollback dokončen. n8n spuštěn s předchozí verzí."
+  log "Rollback dokončen."
 }
 
 log "=== Spouštím aktualizaci n8n ==="
-OLD_VERSION=$(sudo -u n8n /usr/local/bin/n8n --version 2>/dev/null || echo "neznámá")
+OLD_VERSION=$(n8n --version 2>/dev/null || echo "neznámá")
 log "Aktuální verze: $OLD_VERSION"
 
-# 1. Záloha databáze
 log "Zálohuji databázi..."
 mkdir -p "$BACKUP_DIR"
-PGPASSWORD="$DB_PASS" sudo -u postgres pg_dump "$DB_NAME" | gzip > "$DB_BACKUP"
+sudo -u postgres pg_dump "$DB_NAME" | gzip > "$DB_BACKUP"
 log "Záloha DB: $DB_BACKUP"
 
-# 2. Záloha dat (credentials, settings)
 log "Zálohuji /opt/n8n/.n8n ..."
 tar -czf "$DATA_BACKUP" -C /opt/n8n .n8n 2>/dev/null
 log "Záloha dat: $DATA_BACKUP"
 
-# 3. Aktualizace npm balíčku
-log "Aktualizuji n8n na nejnovější stable verzi..."
+log "Aktualizuji n8n..."
 if ! npm install -g n8n@latest >> "$LOG_FILE" 2>&1; then
   log "CHYBA: npm install selhal."
   rollback
   exit 1
 fi
 
-NEW_VERSION=$(sudo -u n8n /usr/local/bin/n8n --version 2>/dev/null || echo "neznámá")
+NEW_VERSION=$(n8n --version 2>/dev/null || echo "neznámá")
 log "Nová verze: $NEW_VERSION"
 
-# 4. Restart service
 log "Restartuji n8n service..."
 systemctl restart n8n
 
-# 5. Ověření že service nastartovala (čekáme max 30s)
 TRIES=0
 while ! systemctl is-active --quiet n8n; do
   sleep 3
@@ -890,9 +843,7 @@ while ! systemctl is-active --quiet n8n; do
   fi
 done
 
-log "n8n úspěšně spuštěn po aktualizaci ($OLD_VERSION → $NEW_VERSION)."
-
-# 6. Smazání zálohy po úspěšné aktualizaci
+log "n8n úspěšně aktualizován ($OLD_VERSION → $NEW_VERSION)."
 cleanup_backup
 log "=== Aktualizace dokončena ==="
 UPDATEEOF
@@ -906,16 +857,9 @@ N8N_UPDATE_SCHEDULE="${N8N_UPDATE_SCHEDULE:-}"
 
 if [[ "$N8N_UPDATE" != "none" && -n "$N8N_UPDATE_SCHEDULE" ]]; then
   info "Nastavuji cron pro automatické aktualizace ($N8N_UPDATE)..."
-
-  # Formát N8N_UPDATE_SCHEDULE:
-  #   týdenní:  "HOUR * * DOW"   → cron: "0 HOUR * * DOW"
-  #   měsíční:  "HOUR DOM * *"   → cron: "0 HOUR DOM * *"
   CRON_EXPR="0 $N8N_UPDATE_SCHEDULE"
-  CRON_LINE="$CRON_EXPR root /usr/local/bin/n8n-update >> /var/log/n8n-update.log 2>&1"
-
-  echo "$CRON_LINE" > /etc/cron.d/n8n-update
+  echo "$CRON_EXPR root /usr/local/bin/n8n-update >> /var/log/n8n-update.log 2>&1" > /etc/cron.d/n8n-update
   chmod 644 /etc/cron.d/n8n-update
-
   log "Cron nastaven: $CRON_EXPR"
   log "Soubor: /etc/cron.d/n8n-update"
 else
@@ -1029,7 +973,6 @@ if [[ "$USE_DOMAIN" == true ]]; then
     --domains "$N8N_HOST" \
     --redirect
   log "HTTPS certifikát nainstalován."
-
   cat >> /etc/nginx/sites-available/n8n <<EOF
 
 server {
