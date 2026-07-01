@@ -348,7 +348,6 @@ else
     <div class="form-row">
       <label for="db-password">Heslo k databázi <span style="color:var(--text-muted);font-weight:400;">(volitelné)</span></label>
       <input type="password" id="db-password" placeholder="Nechte prázdné pro automatické generování">
-      <p class="hint">Pokud nezadáte heslo, bude vygenerováno automaticky a uloženo v <span style="font-family:monospace;font-size:11px;">/etc/n8n/n8n.env</span>.</p>
     </div>
 
     <button id="btn-install" type="button" class="btn btn-primary" onclick="handleSubmit()">
