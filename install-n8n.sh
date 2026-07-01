@@ -551,12 +551,34 @@ function handleSubmit() {
     showPage('page2');
     selectUpdate('none');
   } else if (page === '3') {
-    showPage('page3');
     var url = sessionStorage.getItem('n8nHost');
-    if (url) {
-      document.getElementById('final-url').textContent = 'https://' + url;
-      startPolling(url);
-    }
+    // Ověř že setup server ještě běží — pokud ne, resetuj na stránku 1
+    fetch('/status').then(function(r) { return r.text(); }).then(function(status) {
+      showPage('page3');
+      if (url) document.getElementById('final-url').textContent = 'https://' + url;
+      if (status === 'OK') {
+        // Instalace už doběhla — rovnou zobraz výsledek
+        document.getElementById('status-pending').style.display = 'none';
+        document.getElementById('status-ok').style.display = 'block';
+        if (url) {
+          document.getElementById('final-url-ok').href = 'https://' + url;
+          document.getElementById('final-url-ok').textContent = 'https://' + url;
+        }
+      } else if (status.indexOf('ERROR:') === 0) {
+        document.getElementById('status-pending').style.display = 'none';
+        document.getElementById('status-error').style.display = 'block';
+        document.getElementById('error-msg').textContent = status.replace('ERROR:', '');
+      } else {
+        // PENDING — stále probíhá, spusť polling
+        if (url) startPolling(url);
+      }
+    }).catch(function() {
+      // Server neodpovídá — instalace skončila nebo byla přerušena, reset
+      sessionStorage.removeItem('n8nPage');
+      sessionStorage.removeItem('n8nHost');
+      sessionStorage.removeItem('n8nEmail');
+      showPage('page1');
+    });
   }
 })();
 </script>
