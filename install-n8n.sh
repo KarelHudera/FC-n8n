@@ -975,18 +975,9 @@ info "Instalace n8n..."
 if ! id "n8n" &>/dev/null; then
   useradd --system --shell /usr/sbin/nologin --create-home --home-dir /opt/n8n n8n
 fi
-# Nainstaluj n8n — zkus nejnovější stable, při problému fallback na ověřenou verzi
-N8N_STABLE_FALLBACK="2.26.0"
+# Nainstaluj nejnovější stable verzi n8n
 info "Instaluji n8n@stable..."
-if ! npm install -g n8n@stable 2>&1; then
-  info "stable selhal, zkouším fallback na n8n@${N8N_STABLE_FALLBACK}..."
-  npm install -g "n8n@${N8N_STABLE_FALLBACK}" || error "Instalace n8n selhala."
-fi
-# Ověř že n8n funguje — spusť a okamžitě ukonči
-if ! timeout 10 /usr/bin/n8n --version >/dev/null 2>&1; then
-  info "n8n@stable nefunguje, zkouším fallback na n8n@${N8N_STABLE_FALLBACK}..."
-  npm install -g "n8n@${N8N_STABLE_FALLBACK}" || error "Instalace n8n selhala."
-fi
+npm install -g n8n@stable || error "Instalace n8n selhala."
 mkdir -p /opt/n8n/.n8n /opt/n8n/backup
 chown -R n8n:n8n /opt/n8n
 log "n8n nainstalován."
@@ -1034,7 +1025,8 @@ Type=simple
 User=n8n
 Group=n8n
 EnvironmentFile=/etc/n8n/n8n.env
-WorkingDirectory=/opt/n8n
+Environment=NODE_OPTIONS=--experimental-vm-modules
+WorkingDirectory=/usr/lib/node_modules/n8n
 ExecStart=${N8N_BIN}
 Restart=on-failure
 RestartSec=10
