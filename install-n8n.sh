@@ -61,7 +61,7 @@ else
     -subj "/CN=$DETECTED_IP" \
     -addext "subjectAltName=IP:$DETECTED_IP" 2>/dev/null
 
-  ufw allow 443/tcp > /dev/null 2>&1 || true
+  ufw allow 8443/tcp > /dev/null 2>&1 || true
   # Vyčisti staré statusy z předchozích běhů
   rm -f /tmp/n8n_config /tmp/n8n_status /tmp/n8n_install_ok
 
@@ -859,7 +859,7 @@ if PARENT_PID > 0:
     t = threading.Thread(target=watch_parent, daemon=True)
     t.start()
 
-server = http.server.HTTPServer(('0.0.0.0', 443), Handler)
+server = http.server.HTTPServer(('0.0.0.0', 8443), Handler)
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ctx.load_cert_chain('/tmp/setup.crt', '/tmp/setup.key')
 server.socket = ctx.wrap_socket(server.socket, server_side=True)
@@ -867,7 +867,7 @@ server.serve_forever()
 PYEOF
 
   # Uvolni port 443 pokud ho drží starý process z předchozího běhu
-  OLD_PID=$(ss -tlnp 2>/dev/null | grep ':443 ' | grep -oP 'pid=\K[0-9]+' | head -1 || true)
+  OLD_PID=$(ss -tlnp 2>/dev/null | grep ':8443 ' | grep -oP 'pid=\K[0-9]+' | head -1 || true)
   if [[ -n "$OLD_PID" ]]; then
     kill "$OLD_PID" 2>/dev/null || true
     sleep 1
@@ -880,7 +880,7 @@ PYEOF
   python3 /tmp/n8n_setup_server.py &
   WEBSERVER_PID=$!
 
-  info "Otevři v prohlížeči: https://$DETECTED_IP"
+  info "Otevři v prohlížeči: https://$DETECTED_IP:8443"
   info "Čekám na konfiguraci..."
 
   while [[ ! -f /tmp/n8n_config ]]; do
@@ -1304,6 +1304,7 @@ ufw default allow outgoing
 ufw allow OpenSSH
 ufw allow 80/tcp
 ufw allow 443/tcp
+ufw allow 8443/tcp
 ufw --force enable
 log "Firewall aktivován."
 
