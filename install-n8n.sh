@@ -975,9 +975,9 @@ info "Instalace n8n..."
 if ! id "n8n" &>/dev/null; then
   useradd --system --shell /usr/sbin/nologin --create-home --home-dir /opt/n8n n8n
 fi
-# Nainstaluj nejnovější stable verzi n8n
+# Nainstaluj nejnovější stable verzi n8n (oprvait)
 info "Instaluji n8n@stable..."
-npm install -g n8n@stable || error "Instalace n8n selhala."
+npm install -g n8n@2.26.0 || error "Instalace n8n selhala."
 mkdir -p /opt/n8n/.n8n /opt/n8n/backup
 chown -R n8n:n8n /opt/n8n
 log "n8n nainstalován."
