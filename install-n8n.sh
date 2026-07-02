@@ -972,7 +972,18 @@ info "Instalace n8n..."
 if ! id "n8n" &>/dev/null; then
   useradd --system --shell /usr/sbin/nologin --create-home --home-dir /opt/n8n n8n
 fi
-npm install -g n8n@latest || { EC=$?; [[ $EC -gt 1 ]] && error "npm install selhalo (exit $EC)." || true; }
+# Nainstaluj n8n — zkus nejnovější stable, při problému fallback na ověřenou verzi
+N8N_STABLE_FALLBACK="2.26.0"
+info "Instaluji n8n@stable..."
+if ! npm install -g n8n@stable 2>&1; then
+  info "stable selhal, zkouším fallback na n8n@${N8N_STABLE_FALLBACK}..."
+  npm install -g "n8n@${N8N_STABLE_FALLBACK}" || error "Instalace n8n selhala."
+fi
+# Ověř že n8n funguje — spusť a okamžitě ukonči
+if ! timeout 10 /usr/bin/n8n --version >/dev/null 2>&1; then
+  info "n8n@stable nefunguje, zkouším fallback na n8n@${N8N_STABLE_FALLBACK}..."
+  npm install -g "n8n@${N8N_STABLE_FALLBACK}" || error "Instalace n8n selhala."
+fi
 mkdir -p /opt/n8n/.n8n /opt/n8n/backup
 chown -R n8n:n8n /opt/n8n
 log "n8n nainstalován."
@@ -1102,10 +1113,19 @@ tar -czf "$DATA_BACKUP" -C /opt/n8n .n8n 2>/dev/null
 log "Záloha dat: $DATA_BACKUP"
 
 log "Aktualizuji n8n..."
-if ! npm install -g n8n@latest >> "$LOG_FILE" 2>&1; then
-  log "CHYBA: npm install selhal."
-  rollback
-  exit 1
+N8N_STABLE_FALLBACK="2.26.0"
+if ! npm install -g n8n@stable >> "$LOG_FILE" 2>&1; then
+  log "stable selhal, zkouším fallback na ${N8N_STABLE_FALLBACK}..."
+  if ! npm install -g "n8n@${N8N_STABLE_FALLBACK}" >> "$LOG_FILE" 2>&1; then
+    log "CHYBA: npm install selhal."
+    rollback
+    exit 1
+  fi
+fi
+# Ověř funkčnost
+if ! timeout 10 n8n --version >/dev/null 2>&1; then
+  log "n8n nefunguje po aktualizaci, zkouším fallback..."
+  npm install -g "n8n@${N8N_STABLE_FALLBACK}" >> "$LOG_FILE" 2>&1 || { rollback; exit 1; }
 fi
 
 NEW_VERSION=$(n8n --version 2>/dev/null || echo "neznámá")
@@ -1146,11 +1166,6 @@ if [[ "$N8N_UPDATE" != "none" && -n "$N8N_UPDATE_SCHEDULE" ]]; then
   log "Soubor: /etc/cron.d/n8n-update"
 else
   info "Automatické aktualizace vypnuty — cron nevytvořen."
-fi
-
-if [[ -n "${WEBSERVER_PID:-}" ]]; then
-  kill $WEBSERVER_PID 2>/dev/null || true
-  wait $WEBSERVER_PID 2>/dev/null || true
 fi
 
 info "Konfigurace Nginx..."
@@ -1323,6 +1338,12 @@ if systemctl is-active --quiet n8n; then
   log "n8n běží."
   touch /tmp/n8n_install_ok
   echo "OK" > /tmp/n8n_status
+  # Teď teprve ukonči setup server — polling stihne přečíst OK status
+  sleep 2
+  if [[ -n "${WEBSERVER_PID:-}" ]]; then
+    kill $WEBSERVER_PID 2>/dev/null || true
+    wait $WEBSERVER_PID 2>/dev/null || true
+  fi
 else
   echo ""
   echo "n8n se nespustil. Logy:"
