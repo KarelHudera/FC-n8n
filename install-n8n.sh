@@ -469,10 +469,12 @@ function startPolling(host) {
       failCount++;
       if (failCount >= MAX_FAILS) {
         clearInterval(statusPoller);
-        document.getElementById('status-pending').style.display = 'none';
-        document.getElementById('status-error').style.display = 'block';
-        document.getElementById('error-msg').textContent = 'Instalační server přestal odpovídat. Instalace pravděpodobně selhala nebo byla přerušena. Zkontrolujte logy: journalctl -u n8n -n 50';
+        // Setup server nereaguje — může znamenat že nginx už převzal port 443
+        // Zkusíme refresh stránky — pokud n8n běží, načte se přímo
         sessionStorage.removeItem('n8nPage');
+        sessionStorage.removeItem('n8nHost');
+        sessionStorage.removeItem('n8nEmail');
+        window.location.reload();
       }
     });
   }, 3000);
@@ -648,10 +650,11 @@ function handleSubmit() {
         if (url) startPolling(url);
       }
     }).catch(function() {
-      // Server neodpovídá — instalace skončila nebo byla přerušena
-      document.getElementById('status-pending').style.display = 'none';
-      document.getElementById('status-error').style.display = 'block';
-      document.getElementById('error-msg').textContent = 'Instalační server přestal odpovídat. Instalace pravděpodobně selhala nebo byla přerušena. Zkontrolujte logy: journalctl -u n8n -n 50';
+      // Setup server nereaguje — zkus refresh, možná nginx už běží
+      sessionStorage.removeItem('n8nPage');
+      sessionStorage.removeItem('n8nHost');
+      sessionStorage.removeItem('n8nEmail');
+      window.location.reload();
     });
   }
 })();
@@ -1166,6 +1169,21 @@ if [[ "$N8N_UPDATE" != "none" && -n "$N8N_UPDATE_SCHEDULE" ]]; then
   log "Soubor: /etc/cron.d/n8n-update"
 else
   info "Automatické aktualizace vypnuty — cron nevytvořen."
+fi
+
+# Zapiš progress status — klient ví že instalace stále probíhá
+echo "INSTALLING" > /tmp/n8n_status 2>/dev/null || true
+
+# Ukonči setup server — nginx potřebuje port 443
+if [[ -n "${WEBSERVER_PID:-}" ]]; then
+  kill $WEBSERVER_PID 2>/dev/null || true
+  wait $WEBSERVER_PID 2>/dev/null || true
+  WEBSERVER_PID=""
+fi
+OLD_443=$(ss -tlnp 2>/dev/null | grep ':443 ' | grep -oP 'pid=\K[0-9]+' | head -1 || true)
+if [[ -n "$OLD_443" ]]; then
+  kill "$OLD_443" 2>/dev/null || true
+  sleep 1
 fi
 
 info "Konfigurace Nginx..."
